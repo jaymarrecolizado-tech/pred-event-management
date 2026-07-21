@@ -56,7 +56,7 @@ class Mailer
         $host = getenv('SMTP_HOST') ?: '';
         $port = (int)(getenv('SMTP_PORT') ?: '587');
         $user = getenv('SMTP_USER') ?: '';
-        $pass = getenv('SMTP_PASS') ?: '';
+        $pass = preg_replace('/\s+/', '', getenv('SMTP_PASS') ?: '') ?? '';
         $secure = getenv('SMTP_SECURE') ?: 'tls';
         $from = getenv('SMTP_FROM') ?: $user;
         if ($host === '' || $user === '' || $pass === '') {
@@ -108,7 +108,7 @@ class Mailer
         $host = getenv('SMTP_HOST') ?: '';
         $port = (int)(getenv('SMTP_PORT') ?: '587');
         $user = getenv('SMTP_USER') ?: '';
-        $pass = getenv('SMTP_PASS') ?: '';
+        $pass = preg_replace('/\s+/', '', getenv('SMTP_PASS') ?: '') ?? '';
         $secure = getenv('SMTP_SECURE') ?: 'tls';
         $from = getenv('SMTP_FROM') ?: $user;
         if ($host === '' || $user === '' || $pass === '') {

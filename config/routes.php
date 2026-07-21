@@ -244,6 +244,14 @@ return [
         'POST' => [AdminEventsController::class, 'setActive'],
         '_guards' => [$rolesAdmin],
     ],
+    'admin_events_deactivate' => [
+        'POST' => [AdminEventsController::class, 'deactivate'],
+        '_guards' => [$rolesAdmin],
+    ],
+    'admin_events_delete' => [
+        'POST' => [AdminEventsController::class, 'delete'],
+        '_guards' => [$rolesAdmin],
+    ],
     'export_registrants_csv' => [
         'GET' => [ExportController::class, 'registrantsCsv'],
         '_guards' => [$rolesAdmin],

@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use PDO;
-use TCPDF;
 
 class CertificateOfAppearanceService
 {
@@ -13,6 +12,7 @@ class CertificateOfAppearanceService
         return [
             'lodging' => 'not_provided',
             'meals' => [
+                'status' => 'not_provided',
                 'breakfast' => false,
                 'lunch' => false,
                 'dinner' => false,
@@ -33,12 +33,23 @@ class CertificateOfAppearanceService
             $vehicle = 'not_provided';
         }
         $mealsIn = is_array($input['meals'] ?? null) ? $input['meals'] : [];
+        $mealsStatus = (string)($mealsIn['status'] ?? '');
+        if (!in_array($mealsStatus, ['not_provided', 'provided'], true)) {
+            // Legacy: any meal checkbox meant meals were provided with lodging.
+            $mealsStatus = (!empty($mealsIn['breakfast']) || !empty($mealsIn['lunch']) || !empty($mealsIn['dinner']))
+                ? 'provided'
+                : 'not_provided';
+        }
+        $breakfast = $mealsStatus === 'provided' && !empty($mealsIn['breakfast']);
+        $lunch = $mealsStatus === 'provided' && !empty($mealsIn['lunch']);
+        $dinner = $mealsStatus === 'provided' && !empty($mealsIn['dinner']);
         return [
             'lodging' => $lodging,
             'meals' => [
-                'breakfast' => !empty($mealsIn['breakfast']),
-                'lunch' => !empty($mealsIn['lunch']),
-                'dinner' => !empty($mealsIn['dinner']),
+                'status' => $mealsStatus,
+                'breakfast' => $breakfast,
+                'lunch' => $lunch,
+                'dinner' => $dinner,
             ],
             'vehicle' => $vehicle,
         ];
@@ -50,7 +61,15 @@ class CertificateOfAppearanceService
         if ($override === null || $override === []) {
             return $defaults;
         }
-        return self::normalizeParticulars(array_replace_recursive($defaults, $override));
+        $merged = array_replace_recursive($defaults, $override);
+        // Override may set meal checkboxes without an explicit status (legacy / partial override).
+        if (isset($override['meals']) && is_array($override['meals']) && !array_key_exists('status', $override['meals'])) {
+            $m = $override['meals'];
+            if (!empty($m['breakfast']) || !empty($m['lunch']) || !empty($m['dinner'])) {
+                $merged['meals']['status'] = 'provided';
+            }
+        }
+        return self::normalizeParticulars($merged);
     }
 
     public static function resolveEmail(array $participant): ?string
@@ -74,6 +93,26 @@ class CertificateOfAppearanceService
             trim((string)($participant['last_name'] ?? '')),
         ], static fn($v) => $v !== '');
         return implode(' ', $parts);
+    }
+
+    /**
+     * Official CoA style: UPPERCASE with middle initial (e.g. MARICAR C. PECSON).
+     */
+    public static function certificateName(array $participant): string
+    {
+        $first = trim((string)($participant['first_name'] ?? ''));
+        $middle = trim((string)($participant['middle_name'] ?? ''));
+        $last = trim((string)($participant['last_name'] ?? ''));
+        $name = $first;
+        if ($middle !== '') {
+            $initial = mb_strtoupper(mb_substr($middle, 0, 1));
+            $mid = mb_strlen($middle) <= 2 ? mb_strtoupper(rtrim($middle, '.')) . '.' : ($initial . '.');
+            $name .= ' ' . $mid;
+        }
+        if ($last !== '') {
+            $name .= ' ' . $last;
+        }
+        return mb_strtoupper(trim($name));
     }
 
     /**
@@ -154,126 +193,7 @@ class CertificateOfAppearanceService
      */
     public static function renderPdf(array $participant, array $activity, array $particulars, array $signatory): string
     {
-        if (!class_exists(TCPDF::class) && is_file(dirname(__DIR__, 2) . '/vendor/autoload.php')) {
-            require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
-        }
-        if (!class_exists(TCPDF::class)) {
-            throw new \RuntimeException('TCPDF is not available');
-        }
-
-        $particulars = self::normalizeParticulars($particulars);
-        $fullName = self::fullName($participant);
-        $agency = trim((string)($participant['agency'] ?? '')) ?: '________________';
-        $venue = trim((string)($activity['venue'] ?? ''));
-        $purpose = trim((string)($activity['purpose'] ?? ''));
-        $inclusive = trim((string)($activity['inclusive_dates'] ?? ''));
-        $issueDate = trim((string)($activity['issue_date'] ?? date('Y-m-d')));
-        $issueLabel = self::formatIssueDate($issueDate);
-        $office = self::officeHeader();
-
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-        $pdf->SetCreator('Event Management');
-        $pdf->SetAuthor($office['name']);
-        $pdf->SetTitle('Certificate of Appearance');
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetMargins(18, 16, 18);
-        $pdf->SetAutoPageBreak(true, 16);
-        $pdf->AddPage();
-
-        $pdf->SetFont('helvetica', 'B', 11);
-        $pdf->Cell(0, 5, $office['name'] . '  ' . $office['website'], 0, 1, 'C');
-        $pdf->SetFont('helvetica', '', 9);
-        $pdf->MultiCell(0, 4, $office['address'] . "\n" . $office['email'] . '  ' . $office['phone'], 0, 'C');
-        $pdf->Ln(4);
-
-        $pdf->SetFont('helvetica', 'B', 14);
-        $pdf->Cell(0, 8, 'CERTIFICATE OF APPEARANCE', 0, 1, 'C');
-        $pdf->Ln(3);
-
-        $pdf->SetFont('helvetica', '', 11);
-        $pdf->Cell(0, 6, 'TO WHOM IT MAY CONCERN:', 0, 1, 'L');
-        $pdf->Ln(2);
-
-        $body = 'This is to certify that <b>' . htmlspecialchars($fullName, ENT_QUOTES)
-            . '</b> of <b>' . htmlspecialchars($agency, ENT_QUOTES)
-            . '</b> appeared at <b>' . htmlspecialchars($venue, ENT_QUOTES)
-            . '</b> on <b>' . htmlspecialchars($inclusive, ENT_QUOTES)
-            . '</b> for the purpose of ' . htmlspecialchars($purpose, ENT_QUOTES) . '.';
-        $pdf->writeHTML('<p style="text-align:justify; line-height:1.5;">' . $body . '</p>', true, false, true, false, '');
-
-        $pdf->writeHTML(
-            '<p style="text-align:justify; line-height:1.5;">It is further certified that during the stay of the above-mentioned name, this office:</p>',
-            true,
-            false,
-            true,
-            false,
-            ''
-        );
-
-        $pdf->SetFont('helvetica', 'B', 10);
-        $pdf->Cell(120, 7, 'Particulars', 1, 0, 'C');
-        $pdf->Cell(0, 7, 'Inclusive Dates', 1, 1, 'C');
-        $pdf->SetFont('helvetica', '', 10);
-
-        $lodgingLines = [];
-        if ($particulars['lodging'] === 'not_provided') {
-            $lodgingLines[] = '• DID NOT PROVIDE hotel/lodging and food and meals';
-        } else {
-            $lodgingLines[] = '• PROVIDED the following:';
-            $lodgingLines[] = '   a) Hotel/lodging/accommodation';
-            $lodgingLines[] = '   b) Meals';
-            if (!empty($particulars['meals']['breakfast'])) {
-                $lodgingLines[] = '      − Breakfast';
-            }
-            if (!empty($particulars['meals']['lunch'])) {
-                $lodgingLines[] = '      − Lunch';
-            }
-            if (!empty($particulars['meals']['dinner'])) {
-                $lodgingLines[] = '      − Dinner';
-            }
-        }
-        $left = implode("\n", $lodgingLines);
-        $h1 = max(18, $pdf->getStringHeight(118, $left) + 4);
-        $pdf->MultiCell(120, $h1, $left, 1, 'L', false, 0);
-        $pdf->MultiCell(0, $h1, $inclusive, 1, 'C', false, 1);
-
-        $vehicleText = $particulars['vehicle'] === 'provided'
-            ? '• PROVIDED VEHICLE'
-            : '• DID NOT PROVIDE VEHICLE';
-        $h2 = 12;
-        $pdf->MultiCell(120, $h2, $vehicleText, 1, 'L', false, 0);
-        $pdf->MultiCell(0, $h2, $inclusive, 1, 'C', false, 1);
-
-        $pdf->Ln(4);
-        $closing = 'This certification is issued upon the request of the interested party to attest to the fact '
-            . 'and duration of his/her appearance, duly verified and affirmed by the undersigned.';
-        $pdf->writeHTML('<p style="text-align:justify; line-height:1.5;">' . htmlspecialchars($closing, ENT_QUOTES) . '</p>', true, false, true, false, '');
-        $pdf->Ln(2);
-        $pdf->writeHTML('<p>Issued this <b>' . htmlspecialchars($issueLabel, ENT_QUOTES) . '</b>.</p>', true, false, true, false, '');
-        $pdf->Ln(10);
-
-        $sigPath = (string)($signatory['signature_path'] ?? '');
-        if ($sigPath !== '' && is_file($sigPath)) {
-            $pdf->Image($sigPath, 18, $pdf->GetY(), 45, 0, '', '', '', false, 300);
-            $pdf->Ln(22);
-        } else {
-            $pdf->Ln(18);
-        }
-
-        $pdf->SetFont('helvetica', 'B', 11);
-        $pdf->Cell(0, 5, strtoupper((string)$signatory['full_name']), 0, 1, 'L');
-        $pdf->SetFont('helvetica', '', 10);
-        $pdf->Cell(0, 5, (string)$signatory['title'], 0, 1, 'L');
-
-        $dir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'certificates';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-        $filename = 'coa_' . (int)($participant['id'] ?? 0) . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(3)) . '.pdf';
-        $path = $dir . DIRECTORY_SEPARATOR . $filename;
-        $pdf->Output($path, 'F');
-        return $path;
+        return CoaPdfRenderer::render($participant, $activity, $particulars, $signatory);
     }
 
     public static function formatIssueDate(string $ymd): string

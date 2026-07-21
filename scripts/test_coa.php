@@ -43,29 +43,44 @@ $assert = static function (bool $cond, string $msg) use (&$failed, &$passed): vo
 // --- particulars helpers ---
 $defaults = Coa::defaultParticulars();
 $assert($defaults['lodging'] === 'not_provided', 'default lodging is not_provided');
+$assert($defaults['meals']['status'] === 'not_provided', 'default meals status is not_provided');
 $assert($defaults['vehicle'] === 'not_provided', 'default vehicle is not_provided');
 
 $normalized = Coa::normalizeParticulars([
     'lodging' => 'provided',
-    'meals' => ['breakfast' => '1', 'lunch' => 0, 'dinner' => true],
+    'meals' => ['status' => 'provided', 'breakfast' => '1', 'lunch' => 0, 'dinner' => true],
     'vehicle' => 'bogus',
 ]);
 $assert($normalized['lodging'] === 'provided', 'normalize lodging provided');
+$assert($normalized['meals']['status'] === 'provided', 'normalize meals status provided');
 $assert($normalized['meals']['breakfast'] === true, 'normalize breakfast true');
 $assert($normalized['meals']['lunch'] === false, 'normalize lunch false');
 $assert($normalized['meals']['dinner'] === true, 'normalize dinner true');
 $assert($normalized['vehicle'] === 'not_provided', 'invalid vehicle falls back');
 
+$legacyMeals = Coa::normalizeParticulars([
+    'lodging' => 'not_provided',
+    'meals' => ['breakfast' => true],
+    'vehicle' => 'not_provided',
+]);
+$assert($legacyMeals['meals']['status'] === 'provided', 'legacy meal checkbox implies provided status');
+
 $merged = Coa::mergeParticulars($defaults, [
     'lodging' => 'provided',
-    'meals' => ['lunch' => true],
+    'meals' => ['status' => 'provided', 'lunch' => true],
 ]);
 $assert($merged['lodging'] === 'provided', 'override lodging');
+$assert($merged['meals']['status'] === 'provided', 'override meals status');
 $assert($merged['meals']['lunch'] === true, 'override lunch');
 $assert($merged['meals']['breakfast'] === false, 'unspecified meal stays false from override normalize');
 
-$noOverride = Coa::mergeParticulars(['lodging' => 'provided', 'meals' => ['breakfast' => true], 'vehicle' => 'provided'], null);
+$noOverride = Coa::mergeParticulars([
+    'lodging' => 'provided',
+    'meals' => ['status' => 'provided', 'breakfast' => true],
+    'vehicle' => 'provided',
+], null);
 $assert($noOverride['lodging'] === 'provided', 'null override keeps defaults');
+$assert($noOverride['meals']['status'] === 'provided', 'null override keeps meals status');
 
 // --- email resolution ---
 $assert(Coa::resolveEmail(['email' => 'a@example.com', 'office_email' => 'b@example.com']) === 'a@example.com', 'prefer personal email');

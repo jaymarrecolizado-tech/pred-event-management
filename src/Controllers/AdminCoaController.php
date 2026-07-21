@@ -722,10 +722,12 @@ class AdminCoaController
     private function particularsFromPost(string $prefix): array
     {
         $lodging = (string)($_POST[$prefix . '_lodging'] ?? 'not_provided');
+        $mealsStatus = (string)($_POST[$prefix . '_meals'] ?? 'not_provided');
         $vehicle = (string)($_POST[$prefix . '_vehicle'] ?? 'not_provided');
         return [
             'lodging' => $lodging,
             'meals' => [
+                'status' => $mealsStatus,
                 'breakfast' => !empty($_POST[$prefix . '_meal_breakfast']),
                 'lunch' => !empty($_POST[$prefix . '_meal_lunch']),
                 'dinner' => !empty($_POST[$prefix . '_meal_dinner']),
@@ -743,6 +745,7 @@ class AdminCoaController
         return [
             'lodging' => (string)($_POST[$key . '_lodging'] ?? 'not_provided'),
             'meals' => [
+                'status' => (string)($_POST[$key . '_meals'] ?? 'not_provided'),
                 'breakfast' => !empty($_POST[$key . '_meal_breakfast']),
                 'lunch' => !empty($_POST[$key . '_meal_lunch']),
                 'dinner' => !empty($_POST[$key . '_meal_dinner']),

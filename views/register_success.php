@@ -41,7 +41,6 @@ unset($_SESSION['registration_email_sent']);
 
         <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
           <a class="btn btn-primary guest-btn guest-btn-lg" href="<?= htmlspecialchars($qrUrl, ENT_QUOTES) ?>" download="DICT-AI-ROADSHOW-QR.png">Download QR</a>
-          <button type="button" class="btn btn-outline-secondary guest-btn guest-btn-lg" disabled title="Coming soon">Add to Wallet</button>
           <a class="btn btn-outline-secondary guest-btn guest-btn-lg" href="?r=register">Register another</a>
         </div>
       </div>

@@ -379,7 +379,11 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   }).then(r => r.json()).then(j => {
     const el = document.getElementById('saveToast');
     el.className = 'toast align-items-center ' + (j.ok ? 'text-bg-success' : 'text-bg-danger') + ' border-0';
-    el.querySelector('.toast-body').innerText = j.ok ? 'Attendance saved successfully' : (j.error || 'Error saving attendance');
+    el.querySelector('.toast-body').innerText = j.ok
+      ? 'Attendance saved for today'
+      : (j.error === 'already_marked'
+        ? 'Already checked in today — same QR works again tomorrow'
+        : (j.error || 'Error saving attendance'));
     const t = new bootstrap.Toast(el);
     t.show();
     if (j.ok) {

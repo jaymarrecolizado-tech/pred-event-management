@@ -151,17 +151,44 @@ class RegisterController
             return;
         }
 
-        $contactEmail = $clean['email'] ?? $clean['office_email'] ?? '';
-        $to = $contactEmail ?: '';
-        if ($to !== '') {
-            $subject = 'Your registration QR code';
-            $body = '<p>Thank you for registering.</p><p>Please find your QR attached or available on the confirmation page.</p>';
-            $sent = Mailer::send($to, $subject, $body, $qrPath);
-            \App\Services\Logger::log(null, $sent ? 'email_sent' : 'email_failed', ['to'=>$to]);
+        $to = trim((string)($clean['email'] ?? ''));
+        $mailSent = false;
+        if ($to !== '' && !empty($qrPath) && is_file($qrPath)) {
+            $first = htmlspecialchars((string)($clean['first_name'] ?? ''), ENT_QUOTES);
+            $subject = 'DICT AI ROADSHOW 2026 — Your registration QR code';
+            $body = '<div style="font-family:Arial,sans-serif;color:#1a1a1a;line-height:1.5">'
+                . '<p>Hi ' . $first . ',</p>'
+                . '<p>Thank you for registering for <strong>DICT AI ROADSHOW 2026</strong>.</p>'
+                . '<p>Your check-in QR code is attached. This is a <strong>multi-day event</strong> — keep the same QR and present it each day at the welcome desk.</p>'
+                . '<p style="margin:1.25rem 0"><img src="cid:registration-qr" alt="Registration QR code" width="240" height="240" style="display:block;border:1px solid #ddd;border-radius:8px;"></p>'
+                . '<p>If the image above does not appear, open the attached PNG file <strong>DICT-AI-ROADSHOW-QR.png</strong>.</p>'
+                . '<p style="color:#555;font-size:13px">This message was sent to ' . htmlspecialchars($to, ENT_QUOTES) . ' because it was used during registration.</p>'
+                . '</div>';
+            $mailSent = Mailer::send(
+                $to,
+                $subject,
+                $body,
+                $qrPath,
+                'DICT-AI-ROADSHOW-QR.png',
+                true
+            );
+            \App\Services\Logger::log(null, $mailSent ? 'email_sent' : 'email_failed', [
+                'to' => $to,
+                'uuid' => $uuid,
+                'has_qr' => is_file($qrPath),
+            ]);
+            if (!$mailSent) {
+                error_log('Registration QR email failed for ' . $to . ' uuid=' . $uuid);
+            }
+        } else {
+            error_log('Registration QR email skipped: missing email or QR file');
         }
 
-        if (!isset($_SESSION['qr_allowed'])) $_SESSION['qr_allowed'] = [];
+        if (!isset($_SESSION['qr_allowed'])) {
+            $_SESSION['qr_allowed'] = [];
+        }
         $_SESSION['qr_allowed'][$uuid] = true;
+        $_SESSION['registration_email_sent'] = $mailSent;
         if (function_exists('csrf_rotate')) {
             csrf_rotate();
         }

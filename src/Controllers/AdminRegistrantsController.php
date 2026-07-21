@@ -154,11 +154,12 @@ class AdminRegistrantsController
             return;
         }
         $path = $this->ensureQrPath($pdo, $participant);
-        $message = $customMessage !== '' ? $customMessage : 'Thank you for joining and registering for our event. Please keep this QR code handy for fast onsite check-in.';
+        $message = $customMessage !== '' ? $customMessage : 'Thank you for joining DICT AI ROADSHOW 2026. Keep this QR code for every event day — you only register once.';
         $body = '<p>Hi ' . htmlspecialchars($participant['first_name'] ?? '', ENT_QUOTES) . ',</p>'
             . '<p>' . nl2br(htmlspecialchars($message, ENT_QUOTES)) . '</p>'
-            . '<p>Your QR code is attached for convenience.</p>';
-        $sent = Mailer::send($to, 'Your event QR code', $body, $path);
+            . '<p>Your QR code is attached and works for Day 1, Day 2, and any remaining days.</p>'
+            . '<p><img src="cid:registration-qr" alt="Registration QR code" width="240" height="240" style="display:block;border:1px solid #ddd;border-radius:8px;"></p>';
+        $sent = Mailer::send($to, 'DICT AI ROADSHOW 2026 — Your event QR code', $body, $path, 'DICT-AI-ROADSHOW-QR.png', true);
         $_SESSION['flash'] = ['type' => $sent ? 'success' : 'danger', 'message' => $sent ? 'Email sent successfully.' : 'Failed to send email.'];
         header('Location: ?r=admin_registrants');
     }

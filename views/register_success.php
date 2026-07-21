@@ -8,6 +8,8 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
 
 $firstName = htmlspecialchars($participant['first_name'] ?? '', ENT_QUOTES);
 $qrUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/qrcode.php?uuid=' . urlencode($participant['uuid']);
+$emailSent = !empty($_SESSION['registration_email_sent']);
+unset($_SESSION['registration_email_sent']);
 ?>
 
 <main class="guest-main">
@@ -23,16 +25,22 @@ $qrUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/qrcode.php?uuid=' . ur
         <h1 class="guest-form-title mb-2">Welcome<?= $firstName !== '' ? ', ' . $firstName : '' ?>!</h1>
         <p class="guest-form-subtitle mb-4">You are all set. Present this QR code at the welcome desk for fast check-in.</p>
 
+        <?php if ($emailSent): ?>
+          <div class="alert alert-success text-start">A copy of your QR code was sent to your registration email. Keep it for every event day.</div>
+        <?php else: ?>
+          <div class="alert alert-warning text-start">We could not confirm email delivery. Please download your QR code below and save it on your phone for every event day.</div>
+        <?php endif; ?>
+
         <div class="guest-qr-card">
           <img src="<?= htmlspecialchars($qrUrl, ENT_QUOTES) ?>" alt="Your registration QR code" class="img-fluid">
         </div>
 
         <p class="guest-scan-hint">
-          <strong>Check-in tip:</strong> Show this screen or your downloaded QR at the entrance. Increase screen brightness if scanning outdoors.
+          <strong>Multi-day tip:</strong> Use this same QR code on Day 1, Day 2, and any remaining days. You only need to register once.
         </p>
 
         <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
-          <a class="btn btn-primary guest-btn guest-btn-lg" href="<?= htmlspecialchars($qrUrl, ENT_QUOTES) ?>" download>Download QR</a>
+          <a class="btn btn-primary guest-btn guest-btn-lg" href="<?= htmlspecialchars($qrUrl, ENT_QUOTES) ?>" download="DICT-AI-ROADSHOW-QR.png">Download QR</a>
           <button type="button" class="btn btn-outline-secondary guest-btn guest-btn-lg" disabled title="Coming soon">Add to Wallet</button>
           <a class="btn btn-outline-secondary guest-btn guest-btn-lg" href="?r=register">Register another</a>
         </div>

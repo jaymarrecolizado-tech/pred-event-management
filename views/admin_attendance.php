@@ -726,7 +726,7 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
     const map = {
       missing_participant: 'Participant ID is missing. Refresh the page and try again.',
       not_found: 'Participant was not found.',
-      already_marked: 'Attendance already marked for this date.',
+      already_marked: 'Already checked in today. The same QR can be used again on the next event day.',
       csrf: 'Session expired. Refresh the page and try again.',
       signature_save_failed: 'Could not save the signature. Try again.',
       invalid: 'Invalid attendance request.',

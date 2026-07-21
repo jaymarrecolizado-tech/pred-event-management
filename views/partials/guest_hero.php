@@ -16,7 +16,7 @@ $bannerSrc = 'assets/dict-ai-roadshow-2026-banner.png';
     >
     <div class="guest-hero-mobile-copy">
       <p class="guest-hero-mobile-title mb-0"><?= htmlspecialchars($eventBrand, ENT_QUOTES) ?></p>
-      <p class="guest-hero-mobile-sub mb-0">Register once, check in fast with your QR code</p>
+      <p class="guest-hero-mobile-sub mb-0">One QR for every event day — register once, check in daily</p>
     </div>
   </div>
 
@@ -34,7 +34,7 @@ $bannerSrc = 'assets/dict-ai-roadshow-2026-banner.png';
     <div class="guest-hero-content">
       <span class="badge-soft guest-hero-badge">Event Registration</span>
       <h1 class="guest-hero-title"><?= htmlspecialchars($eventBrand, ENT_QUOTES) ?></h1>
-      <p class="guest-hero-subtitle">Register once, check in fast with your QR code at the welcome desk.</p>
+      <p class="guest-hero-subtitle">Multi-day event — register once, then use the same QR code each day at the welcome desk.</p>
       <ol class="guest-hero-steps">
         <li>
           <span class="guest-hero-step-num">1</span>
@@ -42,11 +42,11 @@ $bannerSrc = 'assets/dict-ai-roadshow-2026-banner.png';
         </li>
         <li>
           <span class="guest-hero-step-num">2</span>
-          <span>Receive your QR code</span>
+          <span>Save your QR (email + download)</span>
         </li>
         <li>
           <span class="guest-hero-step-num">3</span>
-          <span>Scan at the entrance</span>
+          <span>Scan the same QR every day</span>
         </li>
       </ol>
       <p class="guest-hero-tip">

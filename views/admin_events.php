@@ -25,7 +25,7 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
   <form method="post" action="?r=admin_events_create" class="row g-2 mb-3">
     <input type="hidden" name="csrf" value="<?= htmlspecialchars($token, ENT_QUOTES) ?>">
     <div class="col-12 col-md-6"><input name="name" class="form-control" placeholder="Event name" required></div>
-    <div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" name="enforce" id="enf" checked><label class="form-check-label" for="enf">Enforce single time-in per day</label></div></div>
+    <div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" name="enforce" id="enf" checked><label class="form-check-label" for="enf">Enforce single time-in per day (same QR still works on other days)</label></div></div>
     <div class="col"><button class="btn btn-primary">Add Event</button></div>
   </form>
   <div class="table-responsive table-modern">

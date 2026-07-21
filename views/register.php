@@ -16,7 +16,7 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
       <div class="guest-form-wrap">
         <div class="guest-form-card">
           <h2 class="guest-form-title">DICT AI ROADSHOW 2026</h2>
-          <p class="guest-form-subtitle">Participant registration — fill each step completely. You can only submit after all required fields are done.</p>
+          <p class="guest-form-subtitle">Participant registration — fill each step completely. Your QR works for every day of the roadshow.</p>
 
           <div class="guest-stepper" aria-label="Registration progress">
             <div class="guest-stepper-progress" aria-hidden="true">

@@ -34,7 +34,7 @@ $displayName = AuthService::displayName() ?? 'Staff';
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark py-3">
   <div class="container">
-    <a class="navbar-brand" href="?r=<?= htmlspecialchars($homeRoute, ENT_QUOTES) ?>">GovNet-Launching</a>
+    <a class="navbar-brand" href="?r=<?= htmlspecialchars($homeRoute, ENT_QUOTES) ?>">DICT AI ROADSHOW 2026</a>
     <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
       <span class="badge text-bg-light text-dark"><?= htmlspecialchars($roleLabel, ENT_QUOTES) ?></span>
       <span class="text-white-50 small d-none d-md-inline"><?= htmlspecialchars($displayName, ENT_QUOTES) ?></span>

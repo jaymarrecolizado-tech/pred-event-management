@@ -84,7 +84,7 @@ class RegisterController
             'nickname' => $_POST['nickname'] ?? '',
             'sex' => $sex,
             'designation' => $designation,
-            'office_email' => $_POST['office_email'] ?? '',
+            'office_email' => '',
             'contact_no' => $_POST['contact_no'] ?? '',
         ]);
 
@@ -117,7 +117,7 @@ class RegisterController
             while ($attempts < $max) {
                 $uuid = Uuid::v4();
                 try {
-                    $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,qr_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+                    $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
                     $stmt->execute([
                         $uuid,
                         $clean['email'],
@@ -131,6 +131,7 @@ class RegisterController
                         $clean['designation'],
                         $clean['office_email'],
                         $clean['contact_no'],
+                        'Registered',
                         null,
                     ]);
                     break;

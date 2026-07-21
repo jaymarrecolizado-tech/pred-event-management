@@ -108,15 +108,17 @@ $defaultMessage = 'Thank you for joining and registering for the event. Please k
     <div class="table-responsive table-modern">
       <table class="table table-sm align-middle">
         <thead>
-          <tr><th>#</th><th>Name</th><th>Agency</th><th>Sector</th><th>Email</th><th>VIP</th><th>UUID</th><th>Actions</th></tr>
+          <tr><th>#</th><th>Name</th><th>Agency</th><th>Sector</th><th>Email</th><th>Status</th><th>VIP</th><th>UUID</th><th>Actions</th></tr>
         </thead>
         <tbody>
         <?php if (!($rows??[])) : ?>
-          <tr><td colspan="8" class="text-center text-muted">No registrants found</td></tr>
+          <tr><td colspan="9" class="text-center text-muted">No registrants found</td></tr>
         <?php endif; ?>
         <?php foreach (($rows??[]) as $i=>$r):
               $displayEmail = $r['email'] ?: ($r['office_email'] ?? '');
               $isVip = (int)($r['is_vip'] ?? 0) === 1;
+              $regStatus = (string)($r['registration_status'] ?? 'Registered');
+              $isPreReg = strcasecmp($regStatus, 'Pre-reg') === 0;
         ?>
           <tr>
             <td><?= ($i+1) + (($page-1)*20) ?></td>
@@ -124,6 +126,11 @@ $defaultMessage = 'Thank you for joining and registering for the event. Please k
             <td><?= htmlspecialchars($r['agency']??'', ENT_QUOTES) ?></td>
             <td><?= htmlspecialchars($r['sector']??'', ENT_QUOTES) ?></td>
             <td><?= htmlspecialchars($displayEmail, ENT_QUOTES) ?></td>
+            <td>
+              <span class="badge <?= $isPreReg ? 'text-bg-warning' : 'text-bg-success' ?>">
+                <?= htmlspecialchars($isPreReg ? 'Pre-reg' : 'Registered', ENT_QUOTES) ?>
+              </span>
+            </td>
             <td>
               <?php if (!empty($canManageVip)): ?>
               <form method="post" action="?r=admin_registrant_vip" class="d-inline">

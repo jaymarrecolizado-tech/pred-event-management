@@ -665,9 +665,13 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
   
   // Submit manual attendance
   document.getElementById('manualAttendanceSubmit')?.addEventListener('click', () => {
-    if (!selectedParticipant) return;
+    const participantId = Number(selectedParticipant?.id || selectedParticipant?.participant_id || 0);
+    if (!selectedParticipant || !Number.isFinite(participantId) || participantId <= 0) {
+      showToast(false, 'Participant record is invalid (missing ID). Refresh the page and try again.');
+      return;
+    }
     
-    const attendanceDate = document.getElementById('manualAttendanceDate').value || new Date().toISOString().split('T')[0];
+    const attendanceDate = document.getElementById('manualAttendanceDate')?.value || new Date().toISOString().split('T')[0];
     const signature = manualSigPad && !manualSigPad.isEmpty() ? manualSigPad.toDataURL('image/png') : '';
     
     const btn = document.getElementById('manualAttendanceSubmit');
@@ -681,7 +685,7 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
         'X-CSRF-Token': csrf
       },
       body: JSON.stringify({
-        participant_id: selectedParticipant.id,
+        participant_id: participantId,
         signature: signature,
         date: attendanceDate
       })
@@ -705,7 +709,7 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
           window.location.reload();
         }, 1500);
       } else {
-        showToast(false, data.error || 'Failed to mark attendance');
+        showToast(false, formatAttendanceError(data.error) || 'Failed to mark attendance');
         btn.disabled = false;
         btn.textContent = 'Mark Attendance';
       }
@@ -717,7 +721,18 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
       btn.textContent = 'Mark Attendance';
     });
   });
-  
+
+  function formatAttendanceError(code) {
+    const map = {
+      missing_participant: 'Participant ID is missing. Refresh the page and try again.',
+      not_found: 'Participant was not found.',
+      already_marked: 'Attendance already marked for this date.',
+      csrf: 'Session expired. Refresh the page and try again.',
+      signature_save_failed: 'Could not save the signature. Try again.',
+      invalid: 'Invalid attendance request.',
+    };
+    return map[code] || code;
+  }  
   // Mark attendance from roster table
   document.querySelectorAll('.mark-from-roster').forEach((btn) => {
     btn.addEventListener('click', () => {

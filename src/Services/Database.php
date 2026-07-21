@@ -63,8 +63,9 @@ class Database
             self::runMigrations($pdo);
             self::$migrationsApplied = true;
         } else {
-            // Still repair id=0 attendance rows (display bug) when auto-migrate is off.
-            self::repairZeroAttendanceIds($pdo);
+            // Safe structural repairs even when auto-migrate is off.
+            self::ensureRegistrationStatusColumn($pdo);
+            self::repairIdentityColumns($pdo);
         }
     }
 
@@ -127,72 +128,131 @@ class Database
         if (!self::tableExists($pdo, 'coa_signatories') || !self::tableExists($pdo, 'coa_send_batches') || !self::tableExists($pdo, 'coa_send_items')) {
             self::executeSqlFile($pdo, $base . '009_coa.sql');
         }
-        // Repair attendance.id = 0 (PHP empty(0) hid Present + blocked signature.php)
-        self::repairZeroAttendanceIds($pdo);
+        // 010 registration status (Pre-reg vs Registered)
+        self::ensureRegistrationStatusColumn($pdo);
+
+        self::repairIdentityColumns($pdo);
     }
 
-    private static function repairZeroAttendanceIds(PDO $pdo): void
+    private static function ensureRegistrationStatusColumn(PDO $pdo): void
     {
-        if (!self::tableExists($pdo, 'attendance')) {
+        if (!self::tableExists($pdo, 'participants')) {
             return;
         }
-        $count = (int)$pdo->query('SELECT COUNT(*) FROM attendance WHERE id = 0')->fetchColumn();
+        if (self::columnExists($pdo, 'participants', 'registration_status')) {
+            return;
+        }
+        try {
+            $pdo->exec(
+                "ALTER TABLE participants
+                 ADD COLUMN registration_status VARCHAR(20) NOT NULL DEFAULT 'Registered' AFTER contact_no"
+            );
+            if (!self::indexExists($pdo, 'participants', 'idx_participants_reg_status')) {
+                $pdo->exec('ALTER TABLE participants ADD INDEX idx_participants_reg_status (registration_status)');
+            }
+        } catch (\Throwable $e) {
+            error_log('ensureRegistrationStatusColumn: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Restore missing PRIMARY KEY / AUTO_INCREMENT and reassign id=0 rows.
+     * Without this, new participants get id=0 and manual attendance fails with missing_participant.
+     */
+    private static function repairIdentityColumns(PDO $pdo): void
+    {
+        self::ensureAutoIncrementPrimaryKey($pdo, 'participants', 'BIGINT UNSIGNED');
+        self::ensureAutoIncrementPrimaryKey($pdo, 'attendance', 'BIGINT UNSIGNED');
+        self::ensureAutoIncrementPrimaryKey($pdo, 'events', 'INT');
+        self::ensureParticipantsUuidUnique($pdo);
+    }
+
+    private static function ensureAutoIncrementPrimaryKey(PDO $pdo, string $table, string $idType): void
+    {
+        if (!self::tableExists($pdo, $table)) {
+            return;
+        }
+
+        try {
+            self::reassignZeroIds($pdo, $table);
+
+            $meta = $pdo->prepare(
+                'SELECT COLUMN_TYPE, EXTRA, COLUMN_KEY
+                 FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = ? AND column_name = \'id\''
+            );
+            $meta->execute([$table]);
+            $col = $meta->fetch(PDO::FETCH_ASSOC);
+            if (!$col) {
+                return;
+            }
+
+            $hasAuto = stripos((string)($col['EXTRA'] ?? ''), 'auto_increment') !== false;
+            $hasPk = strtoupper((string)($col['COLUMN_KEY'] ?? '')) === 'PRI'
+                || self::indexExists($pdo, $table, 'PRIMARY');
+
+            if ($hasAuto && $hasPk) {
+                return;
+            }
+
+            if (!$hasPk) {
+                $pdo->exec("ALTER TABLE `{$table}` MODIFY `id` {$idType} NOT NULL AUTO_INCREMENT, ADD PRIMARY KEY (`id`)");
+            } else {
+                $pdo->exec("ALTER TABLE `{$table}` MODIFY `id` {$idType} NOT NULL AUTO_INCREMENT");
+            }
+
+            $max = (int)$pdo->query("SELECT COALESCE(MAX(id), 0) FROM `{$table}`")->fetchColumn();
+            $pdo->exec('ALTER TABLE `' . $table . '` AUTO_INCREMENT = ' . max($max + 1, 1));
+        } catch (\Throwable $e) {
+            error_log("ensureAutoIncrementPrimaryKey({$table}): " . $e->getMessage());
+        }
+    }
+
+    private static function reassignZeroIds(PDO $pdo, string $table): void
+    {
+        $count = (int)$pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE id = 0")->fetchColumn();
         if ($count === 0) {
             return;
         }
-        $max = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM attendance')->fetchColumn();
+
+        $max = (int)$pdo->query("SELECT COALESCE(MAX(id), 0) FROM `{$table}`")->fetchColumn();
         $next = max($max + 1, 1);
-        try {
-            $pdo->beginTransaction();
-            $rows = $pdo->query(
-                'SELECT participant_id, attendance_date, time_in, signature_path, event_id, status, created_at, purpose
-                 FROM attendance WHERE id = 0'
-            )->fetchAll(PDO::FETCH_ASSOC);
-            $pdo->exec('DELETE FROM attendance WHERE id = 0');
-            $hasPurpose = self::columnExists($pdo, 'attendance', 'purpose');
-            foreach ($rows as $row) {
-                if ($hasPurpose) {
-                    $ins = $pdo->prepare(
-                        'INSERT INTO attendance (id, participant_id, attendance_date, time_in, signature_path, event_id, status, created_at, purpose)
-                         VALUES (?,?,?,?,?,?,?,?,?)'
-                    );
-                    $ins->execute([
-                        $next,
-                        $row['participant_id'],
-                        $row['attendance_date'],
-                        $row['time_in'],
-                        $row['signature_path'],
-                        $row['event_id'],
-                        $row['status'] ?? 'present',
-                        $row['created_at'] ?? date('Y-m-d H:i:s'),
-                        $row['purpose'] ?? 'standard',
-                    ]);
-                } else {
-                    $ins = $pdo->prepare(
-                        'INSERT INTO attendance (id, participant_id, attendance_date, time_in, signature_path, event_id, status, created_at)
-                         VALUES (?,?,?,?,?,?,?,?)'
-                    );
-                    $ins->execute([
-                        $next,
-                        $row['participant_id'],
-                        $row['attendance_date'],
-                        $row['time_in'],
-                        $row['signature_path'],
-                        $row['event_id'],
-                        $row['status'] ?? 'present',
-                        $row['created_at'] ?? date('Y-m-d H:i:s'),
-                    ]);
-                }
-                $next++;
+
+        // MyISAM: update in place (no reliable transactions).
+        $rows = $pdo->query("SELECT * FROM `{$table}` WHERE id = 0")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $oldId = 0;
+            $upd = $pdo->prepare("UPDATE `{$table}` SET id = ? WHERE id = 0 LIMIT 1");
+            $upd->execute([$next]);
+
+            if ($table === 'participants') {
+                $link = $pdo->prepare('UPDATE attendance SET participant_id = ? WHERE participant_id = ?');
+                $link->execute([$next, $oldId]);
             }
-            $pdo->exec('ALTER TABLE attendance AUTO_INCREMENT = ' . $next);
-            $pdo->commit();
-        } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            error_log('repairZeroAttendanceIds: ' . $e->getMessage());
+
+            $next++;
         }
+    }
+
+    private static function ensureParticipantsUuidUnique(PDO $pdo): void
+    {
+        if (!self::tableExists($pdo, 'participants') || !self::columnExists($pdo, 'participants', 'uuid')) {
+            return;
+        }
+        if (self::indexExists($pdo, 'participants', 'uuid') || self::indexExists($pdo, 'participants', 'uq_participants_uuid')) {
+            return;
+        }
+        try {
+            $pdo->exec('ALTER TABLE participants ADD UNIQUE KEY uq_participants_uuid (uuid)');
+        } catch (\Throwable $e) {
+            error_log('ensureParticipantsUuidUnique: ' . $e->getMessage());
+        }
+    }
+
+    /** @deprecated kept for scripts that call it directly */
+    private static function repairZeroAttendanceIds(PDO $pdo): void
+    {
+        self::ensureAutoIncrementPrimaryKey($pdo, 'attendance', 'BIGINT UNSIGNED');
     }
 
     private static function executeSqlFile(PDO $pdo, string $path): void

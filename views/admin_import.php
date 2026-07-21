@@ -20,6 +20,7 @@ $errors = $errors ?? [];
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h5">Import CSV</h1>
     <div class="btn-group">
+      <a class="btn btn-outline-primary btn-sm" href="?r=admin_import_template">Download Template</a>
       <a class="btn btn-outline-secondary btn-sm" href="?r=admin_registrants">Registrants</a>
       <a class="btn btn-outline-secondary btn-sm" href="?r=admin_attendance">Attendance</a>
       <a class="btn btn-outline-secondary btn-sm" href="?r=admin_import_history">Import History</a>
@@ -33,6 +34,11 @@ $errors = $errors ?? [];
       <li class="breadcrumb-item active" aria-current="page">Import</li>
     </ol>
   </nav>
+  <div class="alert alert-info">
+    Use the template columns: <strong>Timestamp, Email Address, First Name, Middle Name, Last Name, Nickname, Sex, Sector, Agency, Designation, Office Email, Contact No.</strong>
+    Imported rows are saved with status <span class="badge text-bg-warning">Pre-reg</span>.
+    Contact numbers must be Philippine mobile format (<code>09XXXXXXXXX</code> or <code>+639XXXXXXXXX</code>) when provided.
+  </div>
   <form method="post" action="?r=admin_import_preview" enctype="multipart/form-data" class="mb-3">
     <input type="hidden" name="csrf" value="<?= htmlspecialchars($token, ENT_QUOTES) ?>">
     <div class="row g-2">
@@ -77,8 +83,8 @@ $errors = $errors ?? [];
           <td><?= htmlspecialchars($p['agency'], ENT_QUOTES) ?></td>
           <td><?= htmlspecialchars($p['sector'], ENT_QUOTES) ?></td>
           <td>
-            <?php $s=$r['status']; $cls = $s==='New'?'success':($s==='Error'?'danger':($s==='Duplicate (email)'||$s==='Duplicate (name+agency)'?'warning':'secondary')); ?>
-            <span class="badge bg-<?= $cls ?>"><?= htmlspecialchars($s, ENT_QUOTES) ?></span>
+            <?php $s=$r['status']; $cls = str_starts_with((string)$s,'New')?'success':(str_starts_with((string)$s,'Error')?'danger':($s==='Duplicate (email)'||$s==='Duplicate (name+agency)'?'warning':'secondary')); ?>
+            <span class="badge bg-<?= $cls ?>"><?= htmlspecialchars((string)$s, ENT_QUOTES) ?></span>
           </td>
         </tr>
         <?php endforeach; ?>

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$guestTitle = $guestTitle ?? 'GovNet-Launching';
+$guestTitle = $guestTitle ?? 'DICT AI ROADSHOW 2026';
 $guestBodyClass = $guestBodyClass ?? 'guest-page';
 $guestIncludeRegistrationAssets = $guestIncludeRegistrationAssets ?? false;
 ?>

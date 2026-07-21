@@ -10,7 +10,7 @@ $dashboardRoute = $isLoggedIn ? AuthService::loginHomeRoute() : 'admin_login';
 <nav class="navbar navbar-expand-lg navbar-dark guest-navbar sticky-top">
   <div class="container guest-container">
     <a class="navbar-brand guest-brand" href="?r=register">
-      <span>GovNet-Launching</span>
+      <span>DICT AI ROADSHOW 2026</span>
     </a>
     <?php if ($guestShowActions): ?>
     <div class="ms-auto d-flex gap-2 guest-nav-actions">

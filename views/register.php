@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 $token = function_exists('csrf_token') ? csrf_token() : '';
-$guestTitle = 'Event Registration — GovNet-Launching';
+$guestTitle = 'Event Registration — DICT AI ROADSHOW 2026';
 $guestIncludeRegistrationAssets = true;
 $guestIncludeRegistrationJs = true;
 require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'guest_head.php';
@@ -15,8 +15,8 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
 
       <div class="guest-form-wrap">
         <div class="guest-form-card">
-          <h2 class="guest-form-title">Participant Registration</h2>
-          <p class="guest-form-subtitle">Complete all steps to receive your check-in QR code.</p>
+          <h2 class="guest-form-title">DICT AI ROADSHOW 2026</h2>
+          <p class="guest-form-subtitle">Participant registration — fill each step completely. You can only submit after all required fields are done.</p>
 
           <div class="guest-stepper" aria-label="Registration progress">
             <div class="guest-stepper-progress" aria-hidden="true">
@@ -24,9 +24,9 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
             </div>
             <p class="guest-stepper-label guest-stepper-label-mobile" id="stepperLabel">Step 1 of 3 — Personal details</p>
             <div class="guest-stepper-tabs" role="tablist">
-              <button type="button" class="guest-stepper-tab is-active" data-step="1" role="tab" aria-current="step">Personal</button>
-              <button type="button" class="guest-stepper-tab" data-step="2" role="tab">Work</button>
-              <button type="button" class="guest-stepper-tab" data-step="3" role="tab">Contact</button>
+              <button type="button" class="guest-stepper-tab is-active" data-step="1" role="tab" aria-current="step">1 · Personal</button>
+              <button type="button" class="guest-stepper-tab" data-step="2" role="tab">2 · Work</button>
+              <button type="button" class="guest-stepper-tab" data-step="3" role="tab">3 · Review</button>
             </div>
           </div>
 
@@ -65,8 +65,9 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
                   </select>
                 </div>
                 <div class="col-12 col-md-6">
-                  <label class="form-label" for="email">Email Address</label>
-                  <input name="email" id="email" type="email" class="form-control" autocomplete="email">
+                  <label class="form-label" for="email">Email Address <span class="req" aria-hidden="true">*</span></label>
+                  <input name="email" id="email" type="email" class="form-control" required autocomplete="email" inputmode="email">
+                  <p class="field-hint">Required — we send your QR code here.</p>
                 </div>
               </div>
             </fieldset>
@@ -88,8 +89,8 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
                 <div class="col-12 col-md-6">
                   <label class="form-label" for="agencyPickerBtn">Agency <span class="req" aria-hidden="true">*</span></label>
                   <div class="picker-field">
-                    <input name="agency_select" id="agencyInput" class="form-control picker-value-input" list="agencyList" placeholder="Type or tap to search" autocomplete="organization">
-                    <button type="button" id="agencyPickerBtn" class="picker-trigger is-placeholder" data-placeholder="Tap to select agency" aria-haspopup="listbox" aria-expanded="false">
+                    <input name="agency_select" id="agencyInput" class="form-control picker-value-input" list="agencyList" placeholder="Type or tap to search" autocomplete="organization" required>
+                    <button type="button" id="agencyPickerBtn" class="picker-trigger is-placeholder" data-placeholder="Tap to select agency" aria-haspopup="listbox" aria-expanded="false" aria-required="true">
                       <span class="picker-trigger-text">Tap to select agency</span>
                       <span class="picker-trigger-chevron" aria-hidden="true">&#9662;</span>
                     </button>
@@ -119,41 +120,59 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
                   </div>
                 </div>
                 <div class="col-12 col-md-6">
-                  <label class="form-label" for="office_email">Office Email</label>
-                  <input name="office_email" id="office_email" type="email" class="form-control" autocomplete="work email">
+                  <label class="form-label" for="contact_no">Mobile Number <span class="req" aria-hidden="true">*</span></label>
+                  <input
+                    name="contact_no"
+                    id="contact_no"
+                    class="form-control"
+                    type="tel"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    required
+                    placeholder="09XXXXXXXXX or +639XXXXXXXXX"
+                    pattern="^(09\d{9}|\+639\d{9}|639\d{9})$"
+                    maxlength="13"
+                    aria-describedby="contactHint"
+                  >
+                  <p class="field-hint" id="contactHint">Philippine mobile only — use 09XXXXXXXXX or +639XXXXXXXXX.</p>
                 </div>
               </div>
             </fieldset>
 
-            <!-- Step 3: Contact -->
+            <!-- Step 3: Review & submit -->
             <fieldset class="reg-step" data-step="3">
-              <legend>Contact and submit</legend>
+              <legend>Review and submit</legend>
               <div class="guest-review" aria-label="Registration summary">
                 <span class="guest-review-chip"><strong>Name:</strong> <span id="reviewName">—</span></span>
                 <span class="guest-review-chip"><strong>Agency:</strong> <span id="reviewAgency">—</span></span>
                 <span class="guest-review-chip"><strong>Email:</strong> <span id="reviewEmail">—</span></span>
+                <span class="guest-review-chip"><strong>Mobile:</strong> <span id="reviewMobile">—</span></span>
               </div>
-              <div class="row g-3 g-md-4">
-                <div class="col-12 col-md-6">
-                  <label class="form-label" for="contact_no">Contact No</label>
-                  <input name="contact_no" id="contact_no" class="form-control" type="tel" inputmode="tel" autocomplete="tel">
-                </div>
-              </div>
+              <ul class="guest-checklist" id="submitChecklist" aria-label="Required information checklist">
+                <li data-check="name"><span class="check-icon" aria-hidden="true"></span> Full name</li>
+                <li data-check="email"><span class="check-icon" aria-hidden="true"></span> Email for QR code</li>
+                <li data-check="sector"><span class="check-icon" aria-hidden="true"></span> Sector</li>
+                <li data-check="agency"><span class="check-icon" aria-hidden="true"></span> Agency</li>
+                <li data-check="mobile"><span class="check-icon" aria-hidden="true"></span> Mobile number</li>
+              </ul>
+              <p class="guest-submit-hint" id="submitHint">Complete the checklist above before submitting.</p>
             </fieldset>
 
             <!-- Inline actions (tablet/desktop) -->
             <div class="guest-actions-inline d-none d-md-flex">
               <button type="button" class="btn btn-outline-secondary guest-btn guest-btn-lg guest-btn-back" id="btnBack" style="display:none">Back</button>
-              <button type="button" class="btn btn-primary guest-btn guest-btn-lg guest-btn-next" id="btnContinue">Continue</button>
-              <button type="submit" class="btn btn-primary guest-btn guest-btn-lg" id="btnRegister" style="display:none">
+              <button type="button" class="btn btn-primary guest-btn guest-btn-lg guest-btn-next" id="btnContinue">
+                <span class="btn-continue-label">Next: Work info</span>
+              </button>
+              <button type="submit" class="btn btn-primary guest-btn guest-btn-lg" id="btnRegister" style="display:none" disabled aria-disabled="true">
                 <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                <span class="btn-label">Complete Registration</span>
+                <span class="btn-label">Submit registration</span>
               </button>
             </div>
 
             <!-- No-JS fallback submit -->
-            <div class="guest-submit-fallback mt-4 d-grid">
-              <button type="submit" class="btn btn-primary btn-lg guest-btn">Register</button>
+            <div class="guest-submit-fallback mt-4">
+              <button type="submit" class="btn btn-primary btn-lg guest-btn w-100">Submit registration</button>
             </div>
           </form>
         </div>
@@ -165,10 +184,12 @@ require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'gues
 <!-- Sticky mobile actions -->
 <div class="guest-actions-sticky" aria-label="Form navigation">
   <button type="button" class="btn btn-outline-secondary guest-btn guest-btn-back" id="btnBackSticky" style="display:none">Back</button>
-  <button type="button" class="btn btn-primary guest-btn flex-grow-1" id="btnContinueSticky">Continue</button>
-  <button type="submit" form="registrationForm" class="btn btn-primary guest-btn flex-grow-1" id="btnRegisterSticky" style="display:none">
+  <button type="button" class="btn btn-primary guest-btn flex-grow-1" id="btnContinueSticky">
+    <span class="btn-continue-label">Next: Work info</span>
+  </button>
+  <button type="submit" form="registrationForm" class="btn btn-primary guest-btn flex-grow-1" id="btnRegisterSticky" style="display:none" disabled aria-disabled="true">
     <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-    <span class="btn-label">Complete Registration</span>
+    <span class="btn-label">Submit registration</span>
   </button>
 </div>
 

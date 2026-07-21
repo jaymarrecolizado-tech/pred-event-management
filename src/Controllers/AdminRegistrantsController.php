@@ -37,7 +37,7 @@ class AdminRegistrantsController
         if ($vipOnly) { $where[] = 'is_vip = 1'; }
         $sqlWhere = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-        $stmt = $pdo->prepare("SELECT SQL_CALC_FOUND_ROWS id, uuid, first_name, last_name, agency, sector, email, office_email, is_vip FROM participants $sqlWhere ORDER BY id DESC LIMIT $per OFFSET $offset");
+        $stmt = $pdo->prepare("SELECT SQL_CALC_FOUND_ROWS id, uuid, first_name, last_name, agency, sector, email, office_email, is_vip, registration_status FROM participants $sqlWhere ORDER BY id DESC LIMIT $per OFFSET $offset");
         $stmt->execute($bind);
         $rows = $stmt->fetchAll();
         $total = (int)$pdo->query('SELECT FOUND_ROWS() AS t')->fetch()['t'];

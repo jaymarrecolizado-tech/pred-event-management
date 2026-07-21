@@ -22,7 +22,7 @@ class AdminImportController
         'agency' => ['name of agency / organization', 'name of agency/organization', 'agency', 'organization', 'company', 'institution', 'employer', 'name of agency'],
         'designation' => ['position/designation', 'position', 'designation', 'title', 'job title', 'role'],
         'office_email' => ['office email', 'office e-mail', 'work email', 'business email', 'official email'],
-        'contact_no' => ['mobile number', 'contact no', 'contact number', 'phone', 'phone number', 'mobile', 'cell', 'cellphone', 'telephone'],
+        'contact_no' => ['contact no.', 'contact no', 'contact number', 'mobile number', 'phone', 'phone number', 'mobile', 'cell', 'cellphone', 'telephone'],
     ];
 
     private array $requiredFields = ['first_name', 'last_name'];
@@ -37,6 +37,43 @@ class AdminImportController
     {
         if (!$this->requireAdmin()) return;
         require dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'admin_import.php';
+    }
+
+    public function downloadTemplate(): void
+    {
+        if (!$this->requireAdmin()) return;
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="DICT_AI_ROADSHOW_2026_import_template.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, [
+            'Timestamp',
+            'Email Address',
+            'First Name',
+            'Middle Name',
+            'Last Name',
+            'Nickname',
+            'Sex',
+            'Sector',
+            'Agency',
+            'Designation',
+            'Office Email',
+            'Contact No.',
+        ]);
+        fputcsv($out, [
+            date('Y-m-d H:i:s'),
+            'participant@example.com',
+            'Juan',
+            'Dela',
+            'Cruz',
+            'JD',
+            'Male',
+            'National Government Agency',
+            'DICT Region 02',
+            'ISA III',
+            '',
+            '09171234567',
+        ]);
+        fclose($out);
     }
 
     public function preview(): void
@@ -222,8 +259,8 @@ class AdminImportController
                     $status = $this->detectStatus($pdo, $row);
                     error_log("Import: Row $rowCount status: $status");
                     
-                    if ($status === 'Error') { 
-                        error_log("Import: Row $rowCount REJECTED - status Error (likely missing first_name or last_name)");
+                    if (str_starts_with($status, 'Error')) { 
+                        error_log("Import: Row $rowCount REJECTED - status $status");
                         $errored++; 
                         continue; 
                     }
@@ -469,6 +506,7 @@ class AdminImportController
                 'Designation' => 'designation',
                 'Office Email' => 'office_email',
                 'Contact No' => 'contact_no',
+                'Contact No.' => 'contact_no',
             ];
             $newMap = [];
             foreach ($oldToNew as $oldKey => $newKey) {
@@ -498,7 +536,18 @@ class AdminImportController
         $agency = $get('agency');
         $designation = $get('designation');
         $officeEmail = $get('office_email');
-        $contactNo = $get('contact_no');
+        $contactRaw = $get('contact_no');
+        $contactNo = '';
+        $contactInvalid = false;
+        if ($contactRaw !== '') {
+            $normalized = \App\Services\ParticipantValidator::normalizePhMobile($contactRaw);
+            if ($normalized === null) {
+                $contactInvalid = true;
+                $contactNo = $contactRaw;
+            } else {
+                $contactNo = $normalized;
+            }
+        }
         
         // If we have full_name but not separate name parts, parse it
         if (!empty($fullName) && (empty($firstName) || empty($lastName))) {
@@ -534,12 +583,15 @@ class AdminImportController
             'designation' => $designation,
             'office_email' => $officeEmail,
             'contact_no' => $contactNo,
+            'contact_invalid' => $contactInvalid,
+            'registration_status' => 'Pre-reg',
         ];
     }
 
     private function detectStatus(\PDO $pdo, array $row): string
     {
         if ($row['first_name'] === '' || $row['last_name'] === '') return 'Error';
+        if (!empty($row['contact_invalid'])) return 'Error (invalid mobile)';
         if ($row['email'] !== '') {
             $s = $pdo->prepare('SELECT id FROM participants WHERE email = ?');
             $s->execute([$row['email']]);
@@ -549,7 +601,7 @@ class AdminImportController
             $s->execute([$row['first_name'], $row['last_name'], ($row['agency']!==''?$row['agency']:null)]);
             if ($s->fetch()) return 'Duplicate (name+agency)';
         }
-        return 'New';
+        return 'New (Pre-reg)';
     }
 
     private function findMatch(\PDO $pdo, array $row): ?array
@@ -576,7 +628,7 @@ class AdminImportController
             
             if ($action === 'insert') {
                 $uuid = \App\Services\Uuid::v4();
-                $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,qr_path,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+                $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
                 $stmt->execute([
                     $uuid,
                     $row['email'] !== '' ? $row['email'] : null,
@@ -590,6 +642,7 @@ class AdminImportController
                     $row['designation'] !== '' ? $row['designation'] : null,
                     $row['office_email'] !== '' ? $row['office_email'] : null,
                     $row['contact_no'] !== '' ? $row['contact_no'] : null,
+                    'Pre-reg',
                     null,
                     (int)$_SESSION['admin_id'],
                 ]);
@@ -604,7 +657,7 @@ class AdminImportController
                         $changed[$f] = ['old'=>$old[$f],'new'=>$row[$f]]; 
                     } 
                 }
-                $stmt = $pdo->prepare('UPDATE participants SET first_name=?, middle_name=?, last_name=?, nickname=?, sex=?, sector=?, agency=?, designation=?, office_email=?, contact_no=? WHERE id=?');
+                $stmt = $pdo->prepare('UPDATE participants SET first_name=?, middle_name=?, last_name=?, nickname=?, sex=?, sector=?, agency=?, designation=?, office_email=?, contact_no=?, registration_status=? WHERE id=?');
                 $stmt->execute([
                     $row['first_name'],
                     $row['middle_name'] !== '' ? $row['middle_name'] : null,
@@ -616,6 +669,7 @@ class AdminImportController
                     $row['designation'] !== '' ? $row['designation'] : null,
                     $row['office_email'] !== '' ? $row['office_email'] : null,
                     $row['contact_no'] !== '' ? $row['contact_no'] : null,
+                    'Pre-reg',
                     (int)$old['id'],
                 ]);
                 $pdo->commit();
@@ -636,7 +690,7 @@ class AdminImportController
             foreach ($batch as $item) {
                 if ($item['action'] === 'insert') {
                     $uuid = \App\Services\Uuid::v4();
-                    $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,qr_path,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+                    $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
                     $stmt->execute([
                         $uuid,
                         $item['row']['email'] !== '' ? $item['row']['email'] : null,
@@ -650,6 +704,7 @@ class AdminImportController
                         $item['row']['designation'] !== '' ? $item['row']['designation'] : null,
                         $item['row']['office_email'] !== '' ? $item['row']['office_email'] : null,
                         $item['row']['contact_no'] !== '' ? $item['row']['contact_no'] : null,
+                        'Pre-reg',
                         null,
                         (int)$_SESSION['admin_id'],
                     ]);
@@ -659,7 +714,7 @@ class AdminImportController
                     $fields = ['first_name','middle_name','last_name','nickname','sex','sector','agency','designation','office_email','contact_no'];
                     $changed = [];
                     foreach ($fields as $f) { if ((string)$old[$f] !== (string)($item['row'][$f] !== '' ? $item['row'][$f] : null)) { $changed[$f] = ['old'=>$old[$f],'new'=>$item['row'][$f]]; } }
-                    $stmt = $pdo->prepare('UPDATE participants SET first_name=?, middle_name=?, last_name=?, nickname=?, sex=?, sector=?, agency=?, designation=?, office_email=?, contact_no=? WHERE id=?');
+                    $stmt = $pdo->prepare('UPDATE participants SET first_name=?, middle_name=?, last_name=?, nickname=?, sex=?, sector=?, agency=?, designation=?, office_email=?, contact_no=?, registration_status=? WHERE id=?');
                     $stmt->execute([
                         $item['row']['first_name'],
                         $item['row']['middle_name'] !== '' ? $item['row']['middle_name'] : null,
@@ -671,6 +726,7 @@ class AdminImportController
                         $item['row']['designation'] !== '' ? $item['row']['designation'] : null,
                         $item['row']['office_email'] !== '' ? $item['row']['office_email'] : null,
                         $item['row']['contact_no'] !== '' ? $item['row']['contact_no'] : null,
+                        'Pre-reg',
                         (int)$old['id'],
                     ]);
                     if ($changed) $changes[] = ['id'=>$old['id'],'fields'=>$changed];

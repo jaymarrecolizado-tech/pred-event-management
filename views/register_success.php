@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$guestTitle = 'Registration Complete — GovNet-Launching';
+$guestTitle = 'Registration Complete — DICT AI ROADSHOW 2026';
 $guestShowActions = false;
 $guestIncludeRegistrationAssets = true;
 require __DIR__ . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'guest_head.php';

@@ -148,6 +148,10 @@ return [
         'GET' => [AdminImportController::class, 'form'],
         '_guards' => [$rolesAdmin],
     ],
+    'admin_import_template' => [
+        'GET' => [AdminImportController::class, 'downloadTemplate'],
+        '_guards' => [$rolesAdmin],
+    ],
     'admin_import_preview' => [
         'POST' => [AdminImportController::class, 'preview'],
         '_guards' => [$rolesAdmin],

@@ -20,21 +20,31 @@
   const btnContinueSticky = document.getElementById('btnContinueSticky');
   const btnRegisterSticky = document.getElementById('btnRegisterSticky');
   const stepError = document.getElementById('stepError');
+  const submitHint = document.getElementById('submitHint');
+  const submitChecklist = document.getElementById('submitChecklist');
 
   const agencyInput = document.getElementById('agencyInput');
   const agencyOther = document.getElementById('agencyOther');
+  const agencyPickerBtn = document.getElementById('agencyPickerBtn');
   const designationInput = document.getElementById('designationInput');
   const designationOther = document.getElementById('designationOther');
 
   const reviewName = document.getElementById('reviewName');
   const reviewAgency = document.getElementById('reviewAgency');
   const reviewEmail = document.getElementById('reviewEmail');
+  const reviewMobile = document.getElementById('reviewMobile');
+
+  const CONTINUE_LABELS = {
+    1: 'Next: Work info',
+    2: 'Next: Review & submit',
+  };
+  const STEP_NAMES = ['Personal details', 'Work information', 'Review & submit'];
+  const PH_MOBILE_RE = /^(09\d{9}|\+639\d{9}|639\d{9})$/;
 
   function showStepError(message) {
     if (!stepError) return;
     stepError.textContent = message;
-    stepError.classList.add('is-visible');
-    stepError.classList.add('alert', 'alert-warning');
+    stepError.classList.add('is-visible', 'alert', 'alert-warning');
   }
 
   function hideStepError() {
@@ -43,12 +53,97 @@
     stepError.classList.remove('is-visible', 'alert', 'alert-warning');
   }
 
+  function normalizePhMobileInput(raw) {
+    return String(raw || '').replace(/[\s\-().]/g, '').trim();
+  }
+
+  function isValidPhMobile(raw) {
+    return PH_MOBILE_RE.test(normalizePhMobileInput(raw));
+  }
+
+  function validatePickerField(input, otherInput) {
+    const val = (input?.value || '').trim();
+    if (!val) return false;
+    if (val === 'other') return !!(otherInput?.value || '').trim();
+    return true;
+  }
+
+  function getAgencyValue() {
+    const val = (agencyInput?.value || '').trim();
+    if (val === 'other') return (agencyOther?.value || '').trim();
+    return val;
+  }
+
+  function getRequiredStatus() {
+    const first = (form.querySelector('[name="first_name"]')?.value || '').trim();
+    const last = (form.querySelector('[name="last_name"]')?.value || '').trim();
+    const emailEl = form.querySelector('[name="email"]');
+    const email = (emailEl?.value || '').trim();
+    const sector = (form.querySelector('[name="sector"]')?.value || '').trim();
+    const agency = getAgencyValue();
+    const mobile = form.querySelector('[name="contact_no"]')?.value || '';
+    const emailOk = !!email && (!emailEl || emailEl.checkValidity());
+
+    return {
+      name: first !== '' && last !== '',
+      email: emailOk,
+      sector: sector !== '',
+      agency: agency !== '',
+      mobile: isValidPhMobile(mobile),
+    };
+  }
+
+  function isFormReadyToSubmit() {
+    const s = getRequiredStatus();
+    return s.name && s.email && s.sector && s.agency && s.mobile;
+  }
+
+  function updateChecklist() {
+    if (!submitChecklist) return;
+    const status = getRequiredStatus();
+    submitChecklist.querySelectorAll('[data-check]').forEach((li) => {
+      const key = li.getAttribute('data-check');
+      const ok = !!status[key];
+      li.classList.toggle('is-done', ok);
+      li.classList.toggle('is-missing', !ok);
+    });
+    const ready = isFormReadyToSubmit();
+    if (submitHint) {
+      submitHint.textContent = ready
+        ? 'All required information looks good. Tap Submit registration.'
+        : 'Complete the checklist above before submitting.';
+      submitHint.classList.toggle('is-ready', ready);
+    }
+  }
+
+  function setRegisterEnabled(enabled) {
+    [btnRegister, btnRegisterSticky].forEach((btn) => {
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+      btn.classList.toggle('is-blocked', !enabled);
+    });
+  }
+
+  function updateContinueLabels() {
+    const label = CONTINUE_LABELS[currentStep] || 'Next';
+    document.querySelectorAll('.btn-continue-label').forEach((el) => {
+      el.textContent = label;
+    });
+  }
+
+  function updateAgencyPickerValidity(showError) {
+    if (!agencyPickerBtn) return;
+    const ok = validatePickerField(agencyInput, agencyOther);
+    agencyPickerBtn.classList.toggle('is-invalid', showError && !ok);
+    agencyPickerBtn.classList.toggle('is-valid', ok);
+  }
+
   function updateStepper() {
     const pct = (currentStep / totalSteps) * 100;
     if (stepperProgress) stepperProgress.style.width = pct + '%';
     if (stepperLabel) {
-      const names = ['Personal details', 'Work information', 'Contact & submit'];
-      stepperLabel.textContent = 'Step ' + currentStep + ' of ' + totalSteps + ' — ' + (names[currentStep - 1] || '');
+      stepperLabel.textContent = 'Step ' + currentStep + ' of ' + totalSteps + ' — ' + (STEP_NAMES[currentStep - 1] || '');
     }
     stepperTabs.forEach((tab) => {
       const step = parseInt(tab.dataset.step, 10);
@@ -74,7 +169,12 @@
       if (btn) btn.style.display = isLast ? '' : 'none';
     });
 
-    if (isLast) updateReview();
+    updateContinueLabels();
+    if (isLast) {
+      updateReview();
+      updateChecklist();
+      setRegisterEnabled(isFormReadyToSubmit());
+    }
   }
 
   function getFieldsInStep(step) {
@@ -85,45 +185,62 @@
     );
   }
 
-  function validatePickerField(input, otherInput) {
-    const val = (input?.value || '').trim();
-    if (!val) return false;
-    if (val === 'other') return !!(otherInput?.value || '').trim();
-    return true;
-  }
-
   function validateStep(step) {
     hideStepError();
     const fields = getFieldsInStep(step);
     let valid = true;
+    let message = 'Please complete the required fields in this step.';
 
     fields.forEach((field) => {
-      if (!field.checkValidity()) valid = false;
+      if (field.hasAttribute('required') && !field.checkValidity()) valid = false;
+      else if (field.type === 'email' && field.value && !field.checkValidity()) valid = false;
     });
 
+    if (step === 1) {
+      const email = form.querySelector('#email');
+      if (email && !email.checkValidity()) {
+        valid = false;
+        message = 'Please enter a valid email — we send your QR code there.';
+      }
+    }
+
     if (step === 2) {
-      if (!validatePickerField(agencyInput, agencyOther)) valid = false;
-      if (agencyInput && !agencyInput.checkValidity()) valid = false;
+      if (!(form.querySelector('#sector')?.value || '').trim()) {
+        valid = false;
+        message = 'Please select your sector.';
+      }
+      if (!validatePickerField(agencyInput, agencyOther)) {
+        valid = false;
+        message = 'Please select your agency. Choose Other if not listed.';
+        updateAgencyPickerValidity(true);
+      } else {
+        updateAgencyPickerValidity(false);
+      }
+      const mobile = form.querySelector('#contact_no');
+      if (mobile) {
+        const cleaned = normalizePhMobileInput(mobile.value);
+        if (cleaned !== mobile.value) mobile.value = cleaned;
+        if (!isValidPhMobile(mobile.value)) {
+          valid = false;
+          message = 'Enter a Philippine mobile number (09XXXXXXXXX or +639XXXXXXXXX).';
+          mobile.setCustomValidity(message);
+        } else {
+          mobile.setCustomValidity('');
+        }
+      }
     }
 
     if (!valid) {
       form.classList.add('was-validated');
-      const firstInvalid = fields.find((f) => !f.checkValidity());
+      showStepError(message);
+      const firstInvalid = fields.find((f) => f.hasAttribute('required') && !f.checkValidity());
       if (firstInvalid) {
         firstInvalid.classList.add('shake');
         setTimeout(() => firstInvalid.classList.remove('shake'), 300);
         firstInvalid.focus();
-      } else if (step === 2 && agencyInput) {
-        showStepError('Please select your agency. Choose Other if not listed.');
-        agencyInput.focus();
+      } else if (step === 2 && agencyPickerBtn && !validatePickerField(agencyInput, agencyOther)) {
+        agencyPickerBtn.focus();
       }
-      return false;
-    }
-
-    if (step === 2 && !validatePickerField(agencyInput, agencyOther)) {
-      form.classList.add('was-validated');
-      showStepError('Please select your agency. Choose Other if not listed.');
-      document.getElementById('agencyPickerBtn')?.focus();
       return false;
     }
 
@@ -140,15 +257,15 @@
   function updateReview() {
     const first = form.querySelector('[name="first_name"]')?.value?.trim() || '';
     const last = form.querySelector('[name="last_name"]')?.value?.trim() || '';
-    const email = form.querySelector('[name="email"]')?.value?.trim()
-      || form.querySelector('[name="office_email"]')?.value?.trim()
-      || '—';
+    const email = form.querySelector('[name="email"]')?.value?.trim() || '—';
+    const mobile = form.querySelector('[name="contact_no"]')?.value?.trim() || '—';
     let agency = agencyInput?.value?.trim() || '';
     if (agency === 'other') agency = agencyOther?.value?.trim() || 'Other';
 
     if (reviewName) reviewName.textContent = (first + ' ' + last).trim() || '—';
     if (reviewAgency) reviewAgency.textContent = agency || '—';
     if (reviewEmail) reviewEmail.textContent = email;
+    if (reviewMobile) reviewMobile.textContent = mobile;
   }
 
   function handleContinue() {
@@ -182,18 +299,47 @@
     });
   });
 
+  function refreshSubmitGate() {
+    updateChecklist();
+    updateReview();
+    if (currentStep === totalSteps) {
+      setRegisterEnabled(isFormReadyToSubmit());
+    }
+    updateAgencyPickerValidity(form.classList.contains('was-validated'));
+  }
+
+  form.addEventListener('input', refreshSubmitGate);
+  form.addEventListener('change', refreshSubmitGate);
+
+  const contactInput = form.querySelector('#contact_no');
+  contactInput?.addEventListener('blur', () => {
+    const cleaned = normalizePhMobileInput(contactInput.value);
+    if (cleaned !== contactInput.value) contactInput.value = cleaned;
+    if (cleaned && !isValidPhMobile(cleaned)) {
+      contactInput.setCustomValidity('Use 09XXXXXXXXX or +639XXXXXXXXX');
+    } else {
+      contactInput.setCustomValidity('');
+    }
+  });
+  contactInput?.addEventListener('input', () => {
+    contactInput.setCustomValidity('');
+  });
+
   function setSubmitLoading(loading) {
     [btnRegister, btnRegisterSticky].forEach((btn) => {
       if (!btn) return;
-      btn.disabled = loading;
-      const label = btn.querySelector('.btn-label');
-      const spinner = btn.querySelector('.spinner-border');
       if (loading) {
-        if (label) label.textContent = 'Registering...';
+        btn.disabled = true;
+        const label = btn.querySelector('.btn-label');
+        const spinner = btn.querySelector('.spinner-border');
+        if (label) label.textContent = 'Submitting...';
         spinner?.classList.remove('d-none');
       } else {
-        if (label) label.textContent = 'Complete Registration';
+        const label = btn.querySelector('.btn-label');
+        const spinner = btn.querySelector('.spinner-border');
+        if (label) label.textContent = 'Submit registration';
         spinner?.classList.add('d-none');
+        setRegisterEnabled(isFormReadyToSubmit());
       }
     });
   }
@@ -207,6 +353,15 @@
         return;
       }
     }
+    if (!isFormReadyToSubmit()) {
+      event.preventDefault();
+      event.stopPropagation();
+      goToStep(totalSteps);
+      updateChecklist();
+      setRegisterEnabled(false);
+      showStepError('Please complete all required information before submitting.');
+      return;
+    }
     if (!form.checkValidity()) {
       event.preventDefault();
       event.stopPropagation();
@@ -214,6 +369,18 @@
       return;
     }
     setSubmitLoading(true);
+  });
+
+  // Block accidental submit taps on disabled sticky button (some browsers still fire)
+  [btnRegister, btnRegisterSticky].forEach((btn) => {
+    btn?.addEventListener('click', (event) => {
+      if (btn.disabled || !isFormReadyToSubmit()) {
+        event.preventDefault();
+        event.stopPropagation();
+        showStepError('Please complete all required information before submitting.');
+        updateChecklist();
+      }
+    });
   });
 
   form.addEventListener('keydown', (event) => {
@@ -232,7 +399,6 @@
       otherInputId,
       datalistId,
       sheetId,
-      title,
     } = config;
 
     const trigger = document.getElementById(triggerId);
@@ -267,6 +433,7 @@
       if (!otherInput) return;
       const show = value === 'other';
       otherInput.style.display = show ? '' : 'none';
+      otherInput.toggleAttribute('required', show);
       if (show) otherInput.focus();
     }
 
@@ -276,6 +443,7 @@
       toggleOther(value);
       closeSheet();
       hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+      refreshSubmitGate();
     }
 
     function renderList(filter) {
@@ -341,7 +509,6 @@
     otherInputId: 'agencyOther',
     datalistId: 'agencyList',
     sheetId: 'agencyPickerSheet',
-    title: 'Select Agency',
   });
 
   buildPicker({
@@ -350,8 +517,8 @@
     otherInputId: 'designationOther',
     datalistId: 'designationList',
     sheetId: 'designationPickerSheet',
-    title: 'Select Designation',
   });
 
   updateStepper();
+  setRegisterEnabled(false);
 })();

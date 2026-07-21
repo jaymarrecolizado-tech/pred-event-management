@@ -1,0 +1,43 @@
+# Secrets & local env
+.env
+.env.*
+!.env.example
+
+# Dependencies
+/vendor/
+
+# Runtime / uploads
+/storage/signatures/**
+!/storage/signatures/index.php
+/storage/certificates/**
+!/storage/certificates/index.php
+/storage/coa_signatories/**
+!/storage/coa_signatories/index.php
+/storage/qrcodes/**
+!/storage/qrcodes/.gitkeep
+/storage/imports/**
+!/storage/imports/index.php
+!/storage/imports/.htaccess
+/storage/reports/**
+/storage/runtime/**
+/logs/
+*.log
+
+# Graphify / AI local artifacts
+/graphify-out/
+**/graphify-out/
+.graphify/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# SQL dumps (often large / sensitive)
+*.sql
+!migrations/*.sql
+
+# Test / temp
+.phpunit.result.cache

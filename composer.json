@@ -1,0 +1,13 @@
+{
+  "name": "issp/solo",
+  "description": "Event registration system",
+  "type": "project",
+  "require": {
+    "tecnickcom/tcpdf": "^6.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS action_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT,
+  action VARCHAR(50),
+  detail TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

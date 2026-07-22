@@ -15,7 +15,7 @@ $flash = $flash ?? null;
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Users</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/app.css" rel="stylesheet">
+  <link href="assets/app.css?v=20260722b" rel="stylesheet">
 </head>
 <body>
 <?php $activeNav = 'admin_users'; require __DIR__ . '/partials/admin_nav.php'; ?>

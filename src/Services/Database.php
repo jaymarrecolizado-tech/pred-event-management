@@ -59,14 +59,23 @@ class Database
         if (self::$migrationsApplied) {
             return;
         }
-        if (self::shouldAutoMigrate()) {
+
+        // Always create/repair core schema when missing (empty Hostinger DBs).
+        // Full migrate also runs when DB_AUTO_MIGRATE=true.
+        $needsCore = !self::tableExists($pdo, 'admins')
+            || !self::tableExists($pdo, 'participants')
+            || !self::tableExists($pdo, 'action_logs')
+            || (self::tableExists($pdo, 'admins') && !self::columnExists($pdo, 'admins', 'role'));
+
+        if (self::shouldAutoMigrate() || $needsCore) {
             self::runMigrations($pdo);
             self::$migrationsApplied = true;
-        } else {
-            // Safe structural repairs even when auto-migrate is off.
-            self::ensureRegistrationStatusColumn($pdo);
-            self::repairIdentityColumns($pdo);
+            return;
         }
+
+        self::ensureRegistrationStatusColumn($pdo);
+        self::repairIdentityColumns($pdo);
+        self::$migrationsApplied = true;
     }
 
     private static function shouldAutoMigrate(): bool

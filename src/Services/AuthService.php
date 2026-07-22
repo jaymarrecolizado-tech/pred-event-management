@@ -121,14 +121,27 @@ final class AuthService
 
     public static function logoutLocal(): void
     {
-        unset(
-            $_SESSION['admin_id'],
-            $_SESSION['admin_role'],
-            $_SESSION['admin_username'],
-            $_SESSION['admin_display_name'],
-            $_SESSION['auth_issued_at'],
-            $_SESSION['auth_last_activity']
-        );
+        $_SESSION = [];
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                $opts = [
+                    'expires' => time() - 42000,
+                    'path' => $params['path'] ?: '/',
+                    'secure' => !empty($params['secure']),
+                    'httponly' => !empty($params['httponly']),
+                ];
+                if (!empty($params['domain'])) {
+                    $opts['domain'] = $params['domain'];
+                }
+                if (!empty($params['samesite'])) {
+                    $opts['samesite'] = $params['samesite'];
+                }
+                setcookie(session_name(), '', $opts);
+            }
+            session_destroy();
+        }
     }
 
     public static function deny(string $method, string $fallbackRoute = 'admin_login'): void
@@ -139,11 +152,13 @@ final class AuthService
             } else {
                 header('Location: ?r=' . $fallbackRoute);
             }
-            return;
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            exit;
         }
         http_response_code(403);
         header('Content-Type: application/json');
         echo json_encode(['error' => 'forbidden', 'code' => 403]);
+        exit;
     }
 
     private static function touchActivity(): bool

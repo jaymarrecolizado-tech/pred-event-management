@@ -18,10 +18,25 @@ class AdminUsersController
             return;
         }
         $pdo = Database::pdo();
-        $rows = $pdo->query(
-            'SELECT id, username, display_name, email, role, is_active, last_login_at, created_at
-             FROM admins ORDER BY id ASC'
-        )->fetchAll();
+        try {
+            $rows = $pdo->query(
+                'SELECT id, username, display_name, email, role, is_active, last_login_at, created_at
+                 FROM admins ORDER BY id ASC'
+            )->fetchAll();
+        } catch (\Throwable $e) {
+            // Older schema fallback — never break the Users page.
+            error_log('admin_users list fallback: ' . $e->getMessage());
+            $rows = $pdo->query(
+                'SELECT id, username, email, created_at FROM admins ORDER BY id ASC'
+            )->fetchAll() ?: [];
+            foreach ($rows as &$row) {
+                $row['display_name'] = $row['display_name'] ?? $row['username'] ?? '';
+                $row['role'] = $row['role'] ?? AuthService::ROLE_ADMIN;
+                $row['is_active'] = $row['is_active'] ?? 1;
+                $row['last_login_at'] = $row['last_login_at'] ?? null;
+            }
+            unset($row);
+        }
         $flash = $_SESSION['flash'] ?? null;
         unset($_SESSION['flash']);
         $roles = [
@@ -50,49 +65,46 @@ class AdminUsersController
 
         if ($username === '' || !$this->validRole($role)) {
             $this->flash('danger', 'Username and a valid role are required.');
-            header('Location: ?r=admin_users');
-            return;
+            $this->redirectUsers();
         }
         if (strlen($password) < self::MIN_PASSWORD_LEN) {
             $this->flash('danger', 'Password must be at least ' . self::MIN_PASSWORD_LEN . ' characters.');
-            header('Location: ?r=admin_users');
-            return;
+            $this->redirectUsers();
         }
         if ($this->isWeakPassword($password)) {
             $this->flash('danger', 'Choose a stronger password (avoid common defaults).');
-            header('Location: ?r=admin_users');
-            return;
+            $this->redirectUsers();
         }
 
-        $pdo = Database::pdo();
-        $exists = $pdo->prepare('SELECT id FROM admins WHERE username = ? LIMIT 1');
-        $exists->execute([$username]);
-        if ($exists->fetch()) {
-            $this->flash('danger', 'Username already exists.');
-            header('Location: ?r=admin_users');
-            return;
+        try {
+            $pdo = Database::pdo();
+            $exists = $pdo->prepare('SELECT id FROM admins WHERE username = ? LIMIT 1');
+            $exists->execute([$username]);
+            if ($exists->fetch()) {
+                $this->flash('danger', 'Username already exists.');
+                $this->redirectUsers();
+            }
+
+            $hash = password_hash($password, PASSWORD_BCRYPT);
+            $this->insertAdmin($pdo, [
+                'username' => $username,
+                'display_name' => $displayName !== '' ? $displayName : null,
+                'password_hash' => $hash,
+                'email' => $email !== '' ? $email : null,
+                'role' => $role,
+            ]);
+
+            Logger::log(AuthService::id(), 'user_created', [
+                'username' => $username,
+                'role' => $role,
+                'actor_role' => AuthService::role(),
+            ]);
+            $this->flash('success', 'User created.');
+        } catch (\Throwable $e) {
+            error_log('admin_users_create: ' . $e->getMessage());
+            $this->flash('danger', 'Could not create account. Please try again or contact support.');
         }
-
-        $hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare(
-            'INSERT INTO admins (username, display_name, password_hash, email, role, is_active)
-             VALUES (?,?,?,?,?,1)'
-        );
-        $stmt->execute([
-            $username,
-            $displayName !== '' ? $displayName : null,
-            $hash,
-            $email !== '' ? $email : null,
-            $role,
-        ]);
-
-        Logger::log(AuthService::id(), 'user_created', [
-            'username' => $username,
-            'role' => $role,
-            'actor_role' => AuthService::role(),
-        ]);
-        $this->flash('success', 'User created.');
-        header('Location: ?r=admin_users');
+        $this->redirectUsers();
     }
 
     public function update(): void
@@ -260,5 +272,67 @@ class AdminUsersController
     private function flash(string $type, string $message): void
     {
         $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+    }
+
+    private function redirectUsers(): void
+    {
+        if (!headers_sent()) {
+            header('Location: ?r=admin_users');
+        }
+        exit;
+    }
+
+    /**
+     * Insert admin using available columns (safe if an older schema is still catching up).
+     *
+     * @param array{username:string,display_name:?string,password_hash:string,email:?string,role:string} $data
+     */
+    private function insertAdmin(\PDO $pdo, array $data): void
+    {
+        $cols = $this->adminColumns($pdo);
+        $fields = ['username', 'password_hash'];
+        $values = [$data['username'], $data['password_hash']];
+
+        if (isset($cols['email'])) {
+            $fields[] = 'email';
+            $values[] = $data['email'];
+        }
+        if (isset($cols['display_name'])) {
+            $fields[] = 'display_name';
+            $values[] = $data['display_name'];
+        }
+        if (isset($cols['role'])) {
+            $fields[] = 'role';
+            $values[] = $data['role'];
+        }
+        if (isset($cols['is_active'])) {
+            $fields[] = 'is_active';
+            $values[] = 1;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($fields), '?'));
+        $sql = 'INSERT INTO admins (' . implode(',', $fields) . ') VALUES (' . $placeholders . ')';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($values);
+    }
+
+    /**
+     * @return array<string,true>
+     */
+    private function adminColumns(\PDO $pdo): array
+    {
+        static $cache = null;
+        if (is_array($cache)) {
+            return $cache;
+        }
+        $cache = [];
+        $rows = $pdo->query('SHOW COLUMNS FROM admins')->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $row) {
+            $name = (string)($row['Field'] ?? '');
+            if ($name !== '') {
+                $cache[$name] = true;
+            }
+        }
+        return $cache;
     }
 }

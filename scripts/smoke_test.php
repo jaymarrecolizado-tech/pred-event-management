@@ -86,7 +86,11 @@ assert_true(isset($missingEmail['errors']['email']), 'missing email rejected');
 
 // Assets / branding files
 $root = dirname(__DIR__);
-assert_true(is_file($root . '/assets/dict-ai-roadshow-2026-banner.png'), 'banner image present');
+assert_true(
+    is_file($root . '/assets/dict-ai-roadshow-2026-banner.jpg')
+    || is_file($root . '/assets/dict-ai-roadshow-2026-banner.png'),
+    'banner image present'
+);
 assert_true(is_file($root . '/assets/guest-registration.js'), 'registration JS present');
 assert_true(is_file($root . '/views/register.php'), 'register view present');
 

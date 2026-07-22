@@ -94,7 +94,32 @@ body {
 
 .table-modern {
   border-radius: 18px;
-  overflow: hidden;
+}
+
+/* Keep horizontal scroll on phones — do NOT use overflow:hidden here
+   (it cancels Bootstrap .table-responsive overflow-x:auto). */
+.table-responsive.table-modern,
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.table-responsive.table-modern > .table,
+.table-responsive > .table {
+  margin-bottom: 0;
+  min-width: 640px;
+}
+
+.table-responsive .table th,
+.table-responsive .table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.table-responsive .table td.text-wrap,
+.table-responsive .table th.text-wrap {
+  white-space: normal;
 }
 
 .table-modern thead {

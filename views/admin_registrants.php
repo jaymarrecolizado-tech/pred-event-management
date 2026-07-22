@@ -12,7 +12,7 @@ $defaultMessage = 'Thank you for joining and registering for the event. Please k
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Registrants</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/app.css" rel="stylesheet">
+  <link href="assets/app.css?v=20260722b" rel="stylesheet">
 </head>
 <body>
 <?php $activeNav = 'admin_registrants'; require __DIR__ . '/partials/admin_nav.php'; ?>

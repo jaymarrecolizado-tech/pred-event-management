@@ -9,7 +9,7 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Attendance</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/app.css" rel="stylesheet">
+  <link href="assets/app.css?v=20260722b" rel="stylesheet">
   <style>
     img.sig { max-height: 64px; border: 1px solid #ddd; background: #fff; }
     .kpi-card {

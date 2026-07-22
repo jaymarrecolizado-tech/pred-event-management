@@ -2,7 +2,11 @@
 declare(strict_types=1);
 
 $eventBrand = 'DICT AI ROADSHOW 2026';
-$bannerSrc = 'assets/dict-ai-roadshow-2026-banner.png';
+// Prefer real JPEG (file was previously a .png extension wrapping JPEG bytes).
+$bannerFile = is_file(dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'dict-ai-roadshow-2026-banner.jpg')
+    ? 'assets/dict-ai-roadshow-2026-banner.jpg'
+    : 'assets/dict-ai-roadshow-2026-banner.png';
+$bannerSrc = $bannerFile . '?v=20260722';
 ?>
 <aside class="guest-hero" aria-label="Registration guide">
   <div class="guest-hero-mobile d-lg-none">
@@ -10,8 +14,8 @@ $bannerSrc = 'assets/dict-ai-roadshow-2026-banner.png';
       class="guest-hero-banner"
       src="<?= htmlspecialchars($bannerSrc, ENT_QUOTES) ?>"
       alt="<?= htmlspecialchars($eventBrand, ENT_QUOTES) ?>"
-      width="1200"
-      height="400"
+      width="1024"
+      height="231"
       decoding="async"
     >
     <div class="guest-hero-mobile-copy">
@@ -26,8 +30,8 @@ $bannerSrc = 'assets/dict-ai-roadshow-2026-banner.png';
         class="guest-hero-banner"
         src="<?= htmlspecialchars($bannerSrc, ENT_QUOTES) ?>"
         alt="<?= htmlspecialchars($eventBrand, ENT_QUOTES) ?>"
-        width="1200"
-        height="400"
+        width="1024"
+        height="231"
         decoding="async"
       >
     </div>

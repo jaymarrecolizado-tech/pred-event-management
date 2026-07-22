@@ -84,7 +84,9 @@
   display: block;
   width: 100%;
   height: auto;
-  object-fit: cover;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: center top;
 }
 
 .guest-hero-mobile {
@@ -100,6 +102,7 @@
 
 .guest-hero-mobile .guest-hero-banner {
   border-bottom: 1px solid var(--border-soft);
+  background: #f7f7f4;
 }
 
 .guest-hero-mobile-copy {
@@ -133,12 +136,14 @@
 .guest-hero-banner-wrap {
   background: #f7f7f4;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  line-height: 0;
 }
 
 .guest-hero-banner-wrap .guest-hero-banner {
-  max-height: 220px;
+  width: 100%;
+  height: auto;
+  max-height: none;
   object-fit: contain;
-  object-position: center;
 }
 
 .guest-hero-content {

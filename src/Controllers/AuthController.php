@@ -15,13 +15,26 @@ class AuthController
     public function loginForm(): void
     {
         if (AuthService::check()) {
-            header('Location: ?r=' . AuthService::loginHomeRoute());
-            return;
+            $this->redirect('?r=' . AuthService::loginHomeRoute());
         }
         require dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'admin_login.php';
     }
 
     public function login(): void
+    {
+        try {
+            $this->handleLogin();
+        } catch (\Throwable $e) {
+            error_log('Login error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            http_response_code(500);
+            $debug = getenv('APP_DEBUG') === 'true';
+            echo $debug
+                ? ('Login failed: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES))
+                : 'Login temporarily unavailable. Please try again, or ask the admin to run migrations / check .env database settings.';
+        }
+    }
+
+    private function handleLogin(): void
     {
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
         $failKey = 'login_fail:' . $ip;
@@ -54,7 +67,10 @@ class AuthController
         }
 
         $pdo = Database::pdo();
-        $stmt = $pdo->prepare('SELECT id, username, password_hash, email, role, is_active, display_name FROM admins WHERE username = ? LIMIT 1');
+        $stmt = $pdo->prepare(
+            'SELECT id, username, password_hash, email, role, is_active, display_name
+             FROM admins WHERE username = ? LIMIT 1'
+        );
         $stmt->execute([$username]);
         $admin = $stmt->fetch();
 
@@ -73,24 +89,42 @@ class AuthController
         RateLimiter::clear($failKey);
         AuthService::establishSession($admin);
 
-        $upd = $pdo->prepare('UPDATE admins SET last_login_at = NOW() WHERE id = ?');
-        $upd->execute([(int)$admin['id']]);
+        try {
+            $upd = $pdo->prepare('UPDATE admins SET last_login_at = NOW() WHERE id = ?');
+            $upd->execute([(int)$admin['id']]);
+        } catch (\Throwable $e) {
+            // Column may be missing on very old DBs; login should still proceed.
+            error_log('last_login_at update skipped: ' . $e->getMessage());
+        }
 
         \App\Services\Logger::log((int)$admin['id'], 'login_success', [
             'ip' => $ip,
             'role' => (string)($admin['role'] ?? AuthService::ROLE_ADMIN),
         ]);
 
-        header('Location: ?r=' . AuthService::loginHomeRoute((string)($admin['role'] ?? AuthService::ROLE_ADMIN)));
+        $this->redirect('?r=' . AuthService::loginHomeRoute((string)($admin['role'] ?? AuthService::ROLE_ADMIN)));
     }
 
     public function logout(): void
     {
-        $id = AuthService::id();
-        if ($id) {
-            \App\Services\Logger::log($id, 'logout', ['role' => AuthService::role()]);
+        try {
+            $id = AuthService::id();
+            if ($id) {
+                \App\Services\Logger::log($id, 'logout', ['role' => AuthService::role()]);
+            }
+        } catch (\Throwable $e) {
+            error_log('Logout log skipped: ' . $e->getMessage());
         }
         AuthService::logoutLocal();
-        header('Location: ?r=admin_login');
+        $this->redirect('?r=admin_login');
+    }
+
+    private function redirect(string $location): void
+    {
+        if (!headers_sent()) {
+            header('Location: ' . $location);
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+        }
+        exit;
     }
 }

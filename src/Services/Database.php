@@ -168,11 +168,23 @@ class Database
      * Restore missing PRIMARY KEY / AUTO_INCREMENT and reassign id=0 rows.
      * Without this, new participants get id=0 and manual attendance fails with missing_participant.
      */
+    /**
+     * Public entry for scripts/import: restore AUTO_INCREMENT on identity tables.
+     * Safe to call repeatedly; does not delete or rewrite existing row data.
+     */
+    public static function ensureIdentityColumns(): void
+    {
+        $pdo = self::pdo();
+        self::repairIdentityColumns($pdo);
+    }
+
     private static function repairIdentityColumns(PDO $pdo): void
     {
         self::ensureAutoIncrementPrimaryKey($pdo, 'participants', 'BIGINT UNSIGNED');
         self::ensureAutoIncrementPrimaryKey($pdo, 'attendance', 'BIGINT UNSIGNED');
         self::ensureAutoIncrementPrimaryKey($pdo, 'events', 'INT');
+        self::ensureAutoIncrementPrimaryKey($pdo, 'import_logs', 'BIGINT');
+        self::ensureAutoIncrementPrimaryKey($pdo, 'admins', 'INT');
         self::ensureParticipantsUuidUnique($pdo);
     }
 

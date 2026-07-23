@@ -215,13 +215,20 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
             <td>
               <?php
                 $attendanceId = $r['attendance_id'] ?? $r['id'] ?? null;
-                $hasAttendanceId = $attendanceId !== null && $attendanceId !== '';
+                $hasAttendanceId = $attendanceId !== null && $attendanceId !== '' && (int)$attendanceId > 0;
+                $sigFile = null;
+                if ($isPresent && $hasAttendanceId && class_exists(\App\Services\SignatureService::class)) {
+                    $sigFile = \App\Services\SignatureService::resolvePath((string)($r['signature_path'] ?? ''));
+                }
               ?>
-              <?php if ($isPresent && $hasAttendanceId): ?>
-                <a class="btn btn-sm btn-outline-primary" href="signature.php?aid=<?= (int)$attendanceId ?>" target="_blank">Download</a>
-                <img class="sig ms-2" src="signature.php?aid=<?= (int)$attendanceId ?>" alt="sig" data-aid="<?= (int)$attendanceId ?>">
+              <?php if ($isPresent && $hasAttendanceId && $sigFile): ?>
+                <a class="btn btn-sm btn-outline-primary" href="signature.php?aid=<?= (int)$attendanceId ?>" target="_blank" rel="noopener">Download</a>
+                <img class="sig ms-2" src="signature.php?aid=<?= (int)$attendanceId ?>&amp;t=<?= rawurlencode((string)@filemtime($sigFile)) ?>" alt="Signature" data-aid="<?= (int)$attendanceId ?>" width="120" height="48" loading="lazy">
                 <button class="btn btn-sm btn-outline-secondary ms-2" data-aid="<?= (int)$attendanceId ?>" data-uuid="<?= htmlspecialchars($r['uuid'], ENT_QUOTES) ?>" data-bs-toggle="modal" data-bs-target="#sigModal">Replace</button>
-                <button class="btn btn-sm btn-outline-success ms-1" data-new="true" data-uuid="<?= htmlspecialchars($r['uuid'], ENT_QUOTES) ?>" data-bs-toggle="modal" data-bs-target="#sigModal">New</button>
+              <?php elseif ($isPresent && $hasAttendanceId): ?>
+                <span class="badge text-bg-warning">Signed</span>
+                <span class="text-muted small ms-1">Image file missing — use Replace</span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" data-aid="<?= (int)$attendanceId ?>" data-uuid="<?= htmlspecialchars($r['uuid'], ENT_QUOTES) ?>" data-bs-toggle="modal" data-bs-target="#sigModal">Replace</button>
               <?php elseif ($isPresent): ?>
                 <span class="badge bg-success">Signed</span>
                 <span class="text-muted small">Preview unavailable (bad attendance id)</span>

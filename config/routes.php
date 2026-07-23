@@ -260,6 +260,14 @@ return [
         'GET' => [ExportController::class, 'attendanceCsv'],
         '_guards' => [$rolesAdmin],
     ],
+    'export_signed_csv' => [
+        'GET' => [ExportController::class, 'signedCsv'],
+        '_guards' => [$rolesAdmin],
+    ],
+    'export_unsigned_csv' => [
+        'GET' => [ExportController::class, 'unsignedCsv'],
+        '_guards' => [$rolesAdmin],
+    ],
     'export_registrants_xlsx' => [
         'GET' => [AdvancedExportController::class, 'registrantsXlsx'],
         '_guards' => [$rolesAdmin],

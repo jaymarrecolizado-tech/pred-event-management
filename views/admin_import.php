@@ -35,9 +35,11 @@ $errors = $errors ?? [];
     </ol>
   </nav>
   <div class="alert alert-info">
+    Upload a <strong>CSV</strong> file (not Excel <code>.xlsx</code>). In Excel: <em>File → Save As → CSV UTF-8</em>.
     Use the template columns: <strong>Timestamp, Email Address, First Name, Middle Name, Last Name, Nickname, Sex, Sector, Agency, Designation, Office Email, Contact No.</strong>
     Imported rows are saved with status <span class="badge text-bg-warning">Pre-reg</span>.
     Contact numbers must be Philippine mobile format (<code>09XXXXXXXXX</code> or <code>+639XXXXXXXXX</code>) when provided.
+    Duplicates (same email) can be skipped or updated using the strategy below.
   </div>
   <form method="post" action="?r=admin_import_preview" enctype="multipart/form-data" class="mb-3">
     <input type="hidden" name="csrf" value="<?= htmlspecialchars($token, ENT_QUOTES) ?>">

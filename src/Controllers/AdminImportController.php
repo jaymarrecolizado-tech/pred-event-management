@@ -161,6 +161,8 @@ class AdminImportController
             ini_set('memory_limit', '256M');
             
             $pdo = Database::pdo();
+            // Hostinger DBs sometimes lose AUTO_INCREMENT on id — repair before inserts.
+            Database::ensureIdentityColumns();
             
             // Use SplFileObject for better CSV handling
             // Don't use SKIP_EMPTY as we want to process all rows including those with empty cells
@@ -333,12 +335,12 @@ class AdminImportController
             $fileSize = filesize($file);
             error_log("Import file info: Size=$fileSize bytes, Estimated rows=$totalRows");
 
-            $summary = json_encode(['inserted'=>$inserted,'updated'=>$updated,'skipped'=>$skipped,'errored'=>$errored,'changes'=>$changes,'stored_csv'=>$file], JSON_UNESCAPED_UNICODE);
-            $log = $pdo->prepare('INSERT INTO import_logs (admin_id, file_name, action, duplicate_strategy, summary) VALUES (?,?,?,?,?)');
-            $log->execute([(int)$_SESSION['admin_id'], basename($file), 'execute', $strategy, $summary]);
+            $summary = ['inserted'=>$inserted,'updated'=>$updated,'skipped'=>$skipped,'errored'=>$errored,'changes'=>$changes,'stored_csv'=>$file];
+            $this->logImport($pdo, $file, $strategy, $summary);
 
             unset($_SESSION['import_file'], $_SESSION['import_map']);
             header('Location: ?r=admin_import_history');
+            exit;
         } catch (\Exception $e) {
             error_log('Import execute error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
             if (isset($fh) && is_resource($fh)) {
@@ -627,25 +629,7 @@ class AdminImportController
             $pdo->beginTransaction();
             
             if ($action === 'insert') {
-                $uuid = \App\Services\Uuid::v4();
-                $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-                $stmt->execute([
-                    $uuid,
-                    $row['email'] !== '' ? $row['email'] : null,
-                    $row['first_name'],
-                    $row['middle_name'] !== '' ? $row['middle_name'] : null,
-                    $row['last_name'],
-                    $row['nickname'] !== '' ? $row['nickname'] : null,
-                    $row['sex'] !== '' ? $row['sex'] : null,
-                    $row['sector'] !== '' ? $row['sector'] : null,
-                    $row['agency'] !== '' ? $row['agency'] : null,
-                    $row['designation'] !== '' ? $row['designation'] : null,
-                    $row['office_email'] !== '' ? $row['office_email'] : null,
-                    $row['contact_no'] !== '' ? $row['contact_no'] : null,
-                    'Pre-reg',
-                    null,
-                    (int)$_SESSION['admin_id'],
-                ]);
+                $this->insertParticipant($pdo, $row);
                 $pdo->commit();
                 return ['success' => true, 'changes' => []];
             } else {
@@ -677,8 +661,94 @@ class AdminImportController
                 return ['success' => true, 'changes' => $changes];
             }
         } catch (\Exception $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            // One repair + retry for missing AUTO_INCREMENT on id
+            if ($action === 'insert' && $this->isMissingIdDefaultError($e->getMessage())) {
+                try {
+                    Database::ensureIdentityColumns();
+                    $pdo->beginTransaction();
+                    $this->insertParticipant($pdo, $row);
+                    $pdo->commit();
+                    return ['success' => true, 'changes' => []];
+                } catch (\Exception $retry) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    return ['success' => false, 'error' => $retry->getMessage(), 'changes' => []];
+                }
+            }
             return ['success' => false, 'error' => $e->getMessage(), 'changes' => []];
+        }
+    }
+
+    private function isMissingIdDefaultError(string $message): bool
+    {
+        return stripos($message, "Field 'id' doesn't have a default value") !== false
+            || stripos($message, 'field id doesn') !== false;
+    }
+
+    private function insertParticipant(\PDO $pdo, array $row): void
+    {
+        $uuid = \App\Services\Uuid::v4();
+        $params = [
+            $uuid,
+            $row['email'] !== '' ? $row['email'] : null,
+            $row['first_name'],
+            $row['middle_name'] !== '' ? $row['middle_name'] : null,
+            $row['last_name'],
+            $row['nickname'] !== '' ? $row['nickname'] : null,
+            $row['sex'] !== '' ? $row['sex'] : null,
+            $row['sector'] !== '' ? $row['sector'] : null,
+            $row['agency'] !== '' ? $row['agency'] : null,
+            $row['designation'] !== '' ? $row['designation'] : null,
+            $row['office_email'] !== '' ? $row['office_email'] : null,
+            $row['contact_no'] !== '' ? $row['contact_no'] : null,
+            'Pre-reg',
+            null,
+            (int)($_SESSION['admin_id'] ?? 0),
+        ];
+
+        try {
+            $stmt = $pdo->prepare(
+                'INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path,created_by)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            $stmt->execute($params);
+        } catch (\Exception $e) {
+            if (!$this->isMissingIdDefaultError($e->getMessage())) {
+                throw $e;
+            }
+            // Last-resort: explicit next id (does not overwrite existing rows).
+            $nextId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) + 1 FROM participants')->fetchColumn();
+            $stmt = $pdo->prepare(
+                'INSERT INTO participants (id,uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path,created_by)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            $stmt->execute(array_merge([$nextId], $params));
+        }
+    }
+
+    private function logImport(\PDO $pdo, string $file, string $strategy, array $summary): void
+    {
+        try {
+            $log = $pdo->prepare('INSERT INTO import_logs (admin_id, file_name, action, duplicate_strategy, summary) VALUES (?,?,?,?,?)');
+            $log->execute([(int)$_SESSION['admin_id'], basename($file), 'execute', $strategy, json_encode($summary, JSON_UNESCAPED_UNICODE)]);
+        } catch (\Exception $e) {
+            if ($this->isMissingIdDefaultError($e->getMessage())) {
+                Database::ensureIdentityColumns();
+                try {
+                    $nextId = (int)$pdo->query('SELECT COALESCE(MAX(id), 0) + 1 FROM import_logs')->fetchColumn();
+                    $log = $pdo->prepare('INSERT INTO import_logs (id, admin_id, file_name, action, duplicate_strategy, summary) VALUES (?,?,?,?,?,?)');
+                    $log->execute([$nextId, (int)$_SESSION['admin_id'], basename($file), 'execute', $strategy, json_encode($summary, JSON_UNESCAPED_UNICODE)]);
+                    return;
+                } catch (\Exception $e2) {
+                    error_log('import_logs insert failed after repair: ' . $e2->getMessage());
+                }
+            }
+            error_log('import_logs insert failed: ' . $e->getMessage());
+            // Do not fail the whole import just because history logging failed.
         }
     }
 
@@ -689,25 +759,7 @@ class AdminImportController
             $inserted = 0; $updated = 0; $changes = [];
             foreach ($batch as $item) {
                 if ($item['action'] === 'insert') {
-                    $uuid = \App\Services\Uuid::v4();
-                    $stmt = $pdo->prepare('INSERT INTO participants (uuid,email,first_name,middle_name,last_name,nickname,sex,sector,agency,designation,office_email,contact_no,registration_status,qr_path,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-                    $stmt->execute([
-                        $uuid,
-                        $item['row']['email'] !== '' ? $item['row']['email'] : null,
-                        $item['row']['first_name'],
-                        $item['row']['middle_name'] !== '' ? $item['row']['middle_name'] : null,
-                        $item['row']['last_name'],
-                        $item['row']['nickname'] !== '' ? $item['row']['nickname'] : null,
-                        $item['row']['sex'] !== '' ? $item['row']['sex'] : null,
-                        $item['row']['sector'] !== '' ? $item['row']['sector'] : null,
-                        $item['row']['agency'] !== '' ? $item['row']['agency'] : null,
-                        $item['row']['designation'] !== '' ? $item['row']['designation'] : null,
-                        $item['row']['office_email'] !== '' ? $item['row']['office_email'] : null,
-                        $item['row']['contact_no'] !== '' ? $item['row']['contact_no'] : null,
-                        'Pre-reg',
-                        null,
-                        (int)$_SESSION['admin_id'],
-                    ]);
+                    $this->insertParticipant($pdo, $item['row']);
                     $inserted++;
                 } else {
                     $old = $item['match'];

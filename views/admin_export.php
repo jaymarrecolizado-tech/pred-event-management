@@ -51,6 +51,32 @@ declare(strict_types=1);
     </div>
     <div class="col-12 col-md-4">
       <div class="card"><div class="card-body">
+        <h2 class="h6">Signed attendees CSV</h2>
+        <p class="text-muted mb-2">Registered guests who already signed (present + signature).</p>
+        <form class="vstack gap-2" method="get" action="">
+          <input type="hidden" name="r" value="export_signed_csv">
+          <label class="form-label small mb-0">Attendance date (optional)</label>
+          <input type="date" name="date" class="form-control" value="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES) ?>">
+          <button class="btn btn-primary" type="submit">Download signed</button>
+          <a class="btn btn-outline-secondary btn-sm" href="?r=export_signed_csv">Download all signed (any day)</a>
+        </form>
+      </div></div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card"><div class="card-body">
+        <h2 class="h6">Not yet signed CSV</h2>
+        <p class="text-muted mb-2">Registered guests who have not signed yet.</p>
+        <form class="vstack gap-2" method="get" action="">
+          <input type="hidden" name="r" value="export_unsigned_csv">
+          <label class="form-label small mb-0">For this date (optional)</label>
+          <input type="date" name="date" class="form-control" value="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES) ?>">
+          <button class="btn btn-warning" type="submit">Download not signed on date</button>
+          <a class="btn btn-outline-secondary btn-sm" href="?r=export_unsigned_csv">Download never signed</a>
+        </form>
+      </div></div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card"><div class="card-body">
         <h2 class="h6">Certificate of Appearance</h2>
         <p class="text-muted">Email CoA PDFs to present + signed guests.</p>
         <a class="btn btn-primary" href="?r=admin_coa">Open Certificates</a>

@@ -41,6 +41,7 @@ class SignatureService
 
     /**
      * Resolve a DB signature_path (relative, absolute, or legacy absolute) to a readable file.
+     * Does not modify the database.
      */
     public static function resolvePath(?string $stored): ?string
     {
@@ -49,26 +50,75 @@ class SignatureService
             return null;
         }
 
-        if (is_file($stored)) {
+        // Already an absolute path that exists on this host.
+        if (is_file($stored) && is_readable($stored)) {
             return $stored;
         }
 
         $normalized = str_replace('\\', '/', $stored);
         $relative = null;
 
+        // .../storage/signatures/2026/file.png (any absolute/legacy deploy path)
         if (preg_match('#(?:^|/)storage/signatures/(.+)$#i', $normalized, $m)) {
-            $relative = $m[1];
-        } elseif (preg_match('#^\d{4}/.+\.png$#i', $normalized)) {
+            $relative = ltrim($m[1], '/');
+        } elseif (preg_match('#^\d{4}/[^/]+\.(png|jpe?g|gif|webp)$#i', $normalized)) {
             $relative = $normalized;
-        } elseif (strpos($normalized, '/') === false && preg_match('#^.+\.png$#i', $normalized)) {
+        } elseif (preg_match('#^[^/]+\.(png|jpe?g|gif|webp)$#i', $normalized)) {
+            // Bare filename — try current year first, then search.
             $relative = date('Y') . '/' . $normalized;
         }
 
-        if ($relative === null) {
+        if ($relative !== null) {
+            $candidate = self::storageRoot() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+            if (is_file($candidate) && is_readable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Last resort: find by basename under storage/signatures/* (survives moved hosts / wrong year).
+        $base = basename($normalized);
+        if ($base !== '' && preg_match('#^.+\.(png|jpe?g|gif|webp)$#i', $base)) {
+            $found = self::findByBasename($base);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    private static function findByBasename(string $basename): ?string
+    {
+        $root = self::storageRoot();
+        if (!is_dir($root)) {
             return null;
         }
 
-        $candidate = self::storageRoot() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-        return is_file($candidate) ? $candidate : null;
+        // Prefer current and previous year directories first.
+        $years = array_unique([date('Y'), (string)((int)date('Y') - 1)]);
+        foreach ($years as $year) {
+            $candidate = $root . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $basename;
+            if (is_file($candidate) && is_readable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Scan year subfolders only (avoid deep recursion cost).
+        $dirs = @scandir($root) ?: [];
+        foreach ($dirs as $entry) {
+            if ($entry === '.' || $entry === '..' || in_array($entry, $years, true)) {
+                continue;
+            }
+            $dir = $root . DIRECTORY_SEPARATOR . $entry;
+            if (!is_dir($dir)) {
+                continue;
+            }
+            $candidate = $dir . DIRECTORY_SEPARATOR . $basename;
+            if (is_file($candidate) && is_readable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }

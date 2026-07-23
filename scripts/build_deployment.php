@@ -71,7 +71,7 @@ if (is_dir($root . DIRECTORY_SEPARATOR . 'vendor')) {
     echo "  + vendor/\n";
 }
 
-foreach (['index.php', 'qrcode.php', '.htaccess', 'composer.json', 'composer.lock', 'post_deploy.sh', 'set_permissions.sh', '.env.example'] as $file) {
+foreach (['index.php', 'qrcode.php', 'signature.php', '.htaccess', 'composer.json', 'composer.lock', 'post_deploy.sh', 'set_permissions.sh', '.env.example'] as $file) {
     $from = $root . DIRECTORY_SEPARATOR . $file;
     if (is_file($from)) {
         $to = $dest . DIRECTORY_SEPARATOR . $file;

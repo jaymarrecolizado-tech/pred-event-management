@@ -299,7 +299,7 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label fw-bold">Participant Signature (Optional)</label>
+          <label class="form-label fw-bold">Participant Signature</label>
           <canvas id="manualSigCanvas" style="width:100%;height:200px;border:1px solid #ddd;touch-action:none;background:#fff;"></canvas>
           <div class="mt-2">
             <button class="btn btn-outline-secondary btn-sm" id="manualSigClear">Clear</button>

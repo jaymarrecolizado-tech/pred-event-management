@@ -303,7 +303,6 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
           <canvas id="manualSigCanvas" style="width:100%;height:200px;border:1px solid #ddd;touch-action:none;background:#fff;"></canvas>
           <div class="mt-2">
             <button class="btn btn-outline-secondary btn-sm" id="manualSigClear">Clear</button>
-            <button class="btn btn-outline-info btn-sm" id="manualSigSkip">Skip Signature</button>
           </div>
         </div>
         <div class="alert alert-info">
@@ -662,11 +661,6 @@ $token = function_exists('csrf_token') ? csrf_token() : '';
   
   // Clear signature
   document.getElementById('manualSigClear')?.addEventListener('click', () => {
-    if (manualSigPad) manualSigPad.clear();
-  });
-  
-  // Skip signature
-  document.getElementById('manualSigSkip')?.addEventListener('click', () => {
     if (manualSigPad) manualSigPad.clear();
   });
   
